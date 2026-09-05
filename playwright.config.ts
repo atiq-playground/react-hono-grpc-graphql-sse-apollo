@@ -20,6 +20,14 @@ export default defineConfig({
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
     },
+    {
+      name: "chromium-narrow",
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 375, height: 812 },
+        hasTouch: true,
+      },
+    },
   ],
   webServer: {
     command: `bunx nx serve dashboard -- --host 127.0.0.1 --port ${dashboardPort}`,

@@ -31,15 +31,16 @@ export default defineConfig({
         timeout: 0,
         proxyTimeout: 0,
       },
+      "/api/exports": {
+        target: "http://127.0.0.1:4000",
+        changeOrigin: true,
+      },
     },
-  },
-  worker: {
-    format: "es",
   },
   build: {
     sourcemap: "hidden",
   },
   optimizeDeps: {
-    exclude: ["@repo/ui", "@repo/shared", "@repo/proto"],
+    exclude: ["@repo/ui", "@repo/shared"],
   },
 });

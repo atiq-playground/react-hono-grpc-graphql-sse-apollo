@@ -1,0 +1,35 @@
+---
+description: Keep Zod schemas and inferred types in one file, sectioned
+globs: **/*.ts,**/*.tsx
+alwaysApply: false
+---
+# Zod Organization
+
+Use `zod/mini`. Keep each Zod schema and its inferred TypeScript types in the
+**same file**. Do **not** peel `z.infer<>` types into a separate `*.types.ts`.
+
+Within a Zod-bearing file, use clear section markers:
+
+1. imports / file header
+2. constants / helpers needed by schemas (if any)
+3. `[schemas]` — all Zod schemas together
+4. `[types]` — all `z.infer<>` and related exported types together
+5. parse helpers / other functions (optional)
+
+`*.types.ts` remains for **non-Zod** implementation/API types (for example
+producer ClickHouseWriter options). See [type-organization.mdc](./type-organization.mdc).
+
+```typescript
+// BAD: Zod-inferred type extracted to filters.types.ts
+// filters.ts
+export const FindingFiltersSchema = z.partialRecord(/* ... */);
+// filters.types.ts
+export type FindingFilters = z.infer<typeof FindingFiltersSchema>;
+
+// GOOD: same file, sectioned
+// [schemas]
+export const FindingFiltersSchema = z.partialRecord(/* ... */);
+
+// [types]
+export type FindingFilters = z.infer<typeof FindingFiltersSchema>;
+```

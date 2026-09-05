@@ -32,7 +32,8 @@
 Testing is deferred, not omitted. Final risk-based QA uses Jest with React
 Testing Library for selected unit and integration seams and Playwright for
 critical browser journeys. Add an earlier focused test only when it materially
-reduces risk around a hard contract, parser, worker protocol, or regression.
+reduces risk around a hard contract, parser, query compiler, event codec, or
+regression.
 
 Global validation belongs to the final validation phase unless the user asks
 for it earlier.

@@ -1,5 +1,10 @@
 # T16 Documentation rewrite
 
+> **Superseded as current guidance** by
+> [ADR-0001](../adr/0001-clickhouse-authoritative-query-engine.md) and
+> [T31](T31-docs-rewrite.md). This ticket records the first architecture's
+> documentation pass and remains as history.
+
 ## Outcome
 
 The repository's canonical documentation describes the architecture actually

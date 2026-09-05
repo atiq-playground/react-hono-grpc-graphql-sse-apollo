@@ -1,5 +1,11 @@
 # T07 Gateway GraphQL layer
 
+> **Superseded in part** by
+> [ADR-0001](../adr/0001-clickhouse-authoritative-query-engine.md) and
+> [T21](T21-gateway-graphql-queries.md). The Apollo/Hono control-plane boundary
+> survives; its original summary and stream-bootstrap schema does not. Content
+> below is kept as history.
+
 ## Outcome
 
 A single GraphQL schema on the Hono gateway aggregates what would otherwise be

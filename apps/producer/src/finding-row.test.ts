@@ -152,7 +152,7 @@ describe("finding row mapper", () => {
       const descriptor = fieldsByLocalName.get(fieldName);
       expect(descriptor?.fieldKind).toBe("message");
       if (descriptor?.fieldKind === "message") {
-        expect(descriptor.message.typeName).toBe("findings.v1.DictColumn");
+        expect(descriptor.message.typeName).toBe("findings.v2.DictColumn");
       }
     }
 
@@ -169,7 +169,7 @@ describe("finding row mapper", () => {
       const descriptor = fieldsByLocalName.get(fieldName);
       expect(descriptor?.fieldKind).toBe("message");
       if (descriptor?.fieldKind === "message") {
-        expect(descriptor.message.typeName).toBe("findings.v1.SparseStringColumn");
+        expect(descriptor.message.typeName).toBe("findings.v2.SparseStringColumn");
       }
     }
 
@@ -177,7 +177,7 @@ describe("finding row mapper", () => {
       const descriptor = fieldsByLocalName.get(fieldName);
       expect(descriptor?.fieldKind).toBe("message");
       if (descriptor?.fieldKind === "message") {
-        expect(descriptor.message.typeName).toBe("findings.v1.OffsetStringArrays");
+        expect(descriptor.message.typeName).toBe("findings.v2.OffsetStringArrays");
       }
     }
   });

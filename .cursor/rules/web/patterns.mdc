@@ -44,14 +44,15 @@ Treat these separately:
 
 | Concern | Tooling |
 |---------|---------|
-| GraphQL control plane | Apollo Client |
-| Stream / page-slice UI state | Zustand (redux middleware) |
+| GraphQL queries, pages, facets, aggregates, detail | Apollo Client cache |
+| Live connection state (`lastEventId`, `pendingUpdates`) | Zustand (redux middleware) |
 | Local interaction | Component hooks |
-| Shareable filters/sorts | React Router search params |
+| Shareable filters/sorts/time range/cursor | React Router search params |
 | Preferences | Context + versioned local storage |
-| Compact index and queries | Browser Web Worker |
+| Filtering, sorting, search, facets, aggregation, export | ClickHouse behind gateway GraphQL |
 
-- Do not duplicate the full corpus into client stores; the worker owns the index
+- Do not duplicate the full corpus into client stores; the browser holds only
+  bounded pages from the `findings` connection and live event state
 - Derive values instead of storing redundant computed state
 - Do not introduce a second remote-state library beside Apollo for GraphQL
 
@@ -77,9 +78,14 @@ Persist shareable state in the URL:
 - Avoid parent-child request waterfalls
 - Prefetch likely next routes or states when justified
 
-## Stream and Detail Loading
+## Query, Live, and Detail Loading
 
-Bootstrap with GraphQL (`streamDescriptor`, summaries, facets), open SSE inside
-the Web Worker for Finding Blocks, and fetch Record Detail lazily through
-GraphQL when a row is selected. Browser code never fetches the raw Source
-Dataset or talks to ClickHouse or Redis directly.
+Load Explore and Overview from bounded GraphQL queries (`findings` cursor
+connection, `facets`, `vulnerabilityOverview`, `datasetInfo`) with `fetchMore`
+under the virtualizer. Open `EventSource('/api/stream')` on the main thread
+through the `useDatasetEvents` hook; apply `finding-upserted` to the Apollo
+cache, treat `findings-changed` and `aggregates-invalidated` as bounded
+refetch triggers, and handle `resync-required` by refetching active queries.
+Fetch Record Detail lazily through `finding(id)` when a row is selected.
+Browser code never decodes protobuf, never fetches the raw Source Dataset, and
+never talks to ClickHouse or Redis directly.

@@ -9,9 +9,5 @@
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],
   "exclude": ["dist", "node_modules"],
-  "references": [
-    { "path": "../../packages/ui" },
-    { "path": "../../packages/shared" },
-    { "path": "../../packages/proto" }
-  ]
+  "references": [{ "path": "../../packages/ui" }, { "path": "../../packages/shared" }]
 }

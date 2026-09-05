@@ -1,6 +1,9 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* Scan shared primitives so CVA hover/focus classes are generated. */
+@source "..";
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -42,6 +45,7 @@
 }
 
 :root {
+  color-scheme: light;
   --radius: 0.625rem;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
@@ -77,6 +81,7 @@
 }
 
 .dark {
+  color-scheme: dark;
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
@@ -117,4 +122,37 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /*
+   * Tailwind v4 preflight uses the browser default cursor on buttons.
+   * Same baseline as `shadcn init --pointer`, extended to Radix selects.
+   */
+  button:not(:disabled):not([aria-disabled="true"]),
+  [role="button"]:not(:disabled):not([aria-disabled="true"]),
+  [role="combobox"]:not(:disabled):not([aria-disabled="true"]),
+  [role="option"]:not([data-disabled]),
+  [role="menuitem"]:not([data-disabled]),
+  summary {
+    cursor: pointer;
+  }
+
+  [data-slot="select-trigger"]:not(:disabled):not([aria-disabled="true"]):hover,
+  [data-slot="select-item"]:not([data-disabled]):hover,
+  [data-slot="command-item"]:not([data-disabled="true"]):hover {
+    background-color: var(--accent);
+    color: var(--accent-foreground);
+  }
+}
+
+/* Screen-reader-only text that stays in the accessibility tree. */
+@utility visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border-width: 0;
 }

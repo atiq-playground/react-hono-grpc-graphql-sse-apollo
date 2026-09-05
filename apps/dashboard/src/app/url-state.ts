@@ -1,62 +1,109 @@
+import {
+  type AnalysisMode,
+  AnalysisModeSchema,
+  type FindingCursor,
+  FindingCursorSchema,
+  type FindingFilters,
+  FindingFiltersSchema,
+  type FindingSort,
+  FindingSortSchema,
+  type TimeRangeInput,
+  TimeRangeInputSchema,
+  TimeRangePresetSchema,
+} from "@repo/shared";
 import { z } from "zod/mini";
 
-const ExploreUrlSchema = z.object({
-  q: z.optional(z.string()),
-  severity: z.optional(z.string()),
-  sort: z.optional(z.string()),
-  dir: z.optional(z.enum(["asc", "desc"])),
-  mode: z.optional(z.enum(["all", "analysis", "aiAnalysis"])),
-  offset: z.optional(z.string()),
-});
+const FILTER_PARAMS = ["severity", "status", "repo", "group", "packageType"] as const;
 
-export type ExploreUrlState = {
+// [schemas]
+
+const SearchSchema = z.string().check(z.maxLength(256));
+
+// [types]
+
+export interface ExploreUrlState {
   search: string;
-  filters: Record<string, string[]>;
-  sort: { field: string; direction: "asc" | "desc" };
-  analysisMode: "all" | "analysis" | "aiAnalysis";
-  pageOffset: number;
-};
+  filters: FindingFilters;
+  sort: FindingSort;
+  analysisMode: AnalysisMode;
+  timeRange: TimeRangeInput;
+  after: FindingCursor | null;
+}
 
-const defaults: ExploreUrlState = {
+export const DEFAULT_EXPLORE_URL_STATE: ExploreUrlState = {
   search: "",
   filters: {},
   sort: { field: "severity", direction: "desc" },
   analysisMode: "all",
-  pageOffset: 0,
+  timeRange: { preset: "live" },
+  after: null,
 };
 
-export function parseExploreSearch(params: URLSearchParams): ExploreUrlState {
-  const raw = {
-    q: params.get("q") ?? undefined,
-    severity: params.get("severity") ?? undefined,
-    sort: params.get("sort") ?? undefined,
-    dir: params.get("dir") ?? undefined,
-    mode: params.get("mode") ?? undefined,
-    offset: params.get("offset") ?? undefined,
-  };
-  const parsed = ExploreUrlSchema.safeParse(raw);
-  if (!parsed.success) return defaults;
+function splitFilterValues(params: URLSearchParams, key: (typeof FILTER_PARAMS)[number]): string[] {
+  return params
+    .getAll(key)
+    .flatMap((value) => value.split(","))
+    .filter((value) => value.length > 0);
+}
 
-  const offset = Number(parsed.data.offset ?? "0");
+export function parseExploreSearch(params: URLSearchParams): ExploreUrlState {
+  const parsedSearch = SearchSchema.safeParse(params.get("q") ?? "");
+  const parsedFilters = FindingFiltersSchema.safeParse(
+    Object.fromEntries(
+      FILTER_PARAMS.flatMap((key) => {
+        const values = splitFilterValues(params, key);
+        return values.length > 0 ? [[key, values] as const] : [];
+      }),
+    ),
+  );
+  const parsedSort = FindingSortSchema.safeParse({
+    field: params.get("sort") ?? DEFAULT_EXPLORE_URL_STATE.sort.field,
+    direction: params.get("dir") ?? DEFAULT_EXPLORE_URL_STATE.sort.direction,
+  });
+  const parsedMode = AnalysisModeSchema.safeParse(
+    params.get("mode") ?? DEFAULT_EXPLORE_URL_STATE.analysisMode,
+  );
+  const parsedPreset = TimeRangePresetSchema.safeParse(
+    params.get("range") ?? DEFAULT_EXPLORE_URL_STATE.timeRange.preset,
+  );
+  const parsedTimeRange = TimeRangeInputSchema.safeParse({
+    preset: parsedPreset.success ? parsedPreset.data : "live",
+    from: params.get("from") ?? undefined,
+    to: params.get("to") ?? undefined,
+  });
+  const parsedCursor = FindingCursorSchema.safeParse(params.get("after"));
+
   return {
-    search: parsed.data.q ?? "",
-    filters: parsed.data.severity ? { severity: parsed.data.severity.split(",") } : {},
-    sort: {
-      field: parsed.data.sort ?? "severity",
-      direction: parsed.data.dir ?? "desc",
-    },
-    analysisMode: parsed.data.mode ?? "all",
-    pageOffset: Number.isFinite(offset) && offset >= 0 ? offset : 0,
+    search: parsedSearch.success ? parsedSearch.data : DEFAULT_EXPLORE_URL_STATE.search,
+    filters: parsedFilters.success ? parsedFilters.data : {},
+    sort: parsedSort.success ? parsedSort.data : DEFAULT_EXPLORE_URL_STATE.sort,
+    analysisMode: parsedMode.success ? parsedMode.data : DEFAULT_EXPLORE_URL_STATE.analysisMode,
+    // Invalid/missing/reversed custom bounds recover to Live instead of sending
+    // a partial custom range to GraphQL.
+    timeRange: parsedTimeRange.success ? parsedTimeRange.data : { preset: "live" },
+    after: parsedCursor.success ? (parsedCursor.data as FindingCursor) : null,
   };
 }
 
 export function exploreStateToSearch(state: ExploreUrlState): string {
   const params = new URLSearchParams();
   if (state.search) params.set("q", state.search);
-  if (state.filters.severity?.length) params.set("severity", state.filters.severity.join(","));
+  for (const key of FILTER_PARAMS) {
+    const values = state.filters[key];
+    if (values && values.length > 0) params.set(key, values.join(","));
+  }
   params.set("sort", state.sort.field);
   params.set("dir", state.sort.direction);
   params.set("mode", state.analysisMode);
-  if (state.pageOffset > 0) params.set("offset", String(state.pageOffset));
+  params.set("range", state.timeRange.preset);
+  if (
+    state.timeRange.preset === "custom" &&
+    state.timeRange.from !== undefined &&
+    state.timeRange.to !== undefined
+  ) {
+    params.set("from", state.timeRange.from);
+    params.set("to", state.timeRange.to);
+  }
+  if (state.after) params.set("after", state.after);
   return params.toString();
 }

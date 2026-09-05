@@ -25,5 +25,6 @@ When creating PRs:
 > For the full implementation and risk-based QA process before git operations,
 > see [development-workflow.mdc](./development-workflow.mdc).
 >
-> Production releases use frozen `release-X.Y.Z` branches - see [release.mdc](./release.mdc).
-> Delete merged feature branches; never delete `release-*` branches.
+> This playground has no frozen release-branch or production deployment
+> workflow. See [release.mdc](./release.mdc). Do not invent one during ordinary
+> PR work.

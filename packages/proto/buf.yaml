@@ -5,9 +5,9 @@ lint:
   use:
     - STANDARD
   except:
-    # Ticket T03 freezes FindingBlock / StreamRequest names for all consumers.
+    # IngestBlocks streams FindingBlock directly to keep the bounded columnar
+    # message as the server-to-server ingestion unit.
     - RPC_REQUEST_STANDARD_NAME
-    - RPC_RESPONSE_STANDARD_NAME
 breaking:
   use:
     - FILE

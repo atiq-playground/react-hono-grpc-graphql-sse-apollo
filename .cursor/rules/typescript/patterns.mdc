@@ -32,16 +32,16 @@ export function useDebounce<T>(value: T, delay: number): T {
 ## Versioned Boundary Contracts
 
 ```typescript
-type QueryWorkerMessage =
-  | { version: 1; requestId: string; type: 'query'; query: FindingQuery }
-  | { version: 1; requestId: string; type: 'export'; query: FindingQuery }
+type DatasetEvent =
+  | { v: 1; type: 'finding-deleted'; datasetVersion: string; id: string }
+  | { v: 1; type: 'resync-required'; datasetVersion: string }
 
-function parseQueryWorkerMessage(value: unknown): QueryWorkerMessage {
-  return queryWorkerMessageSchema.parse(value)
+function parseDatasetEvent(value: unknown): DatasetEvent {
+  return datasetEventSchema.parse(value)
 }
 ```
 
-Keep stream, API, URL, preference, and worker-message contracts explicit,
-versioned, and validated. Use discriminated unions for protocols and exhaust
-all variants. Do not model immutable dataset versions or Finding Blocks as a
-mutable CRUD repository.
+Keep GraphQL, Dataset Event, URL, preference, and server-side ingestion
+contracts explicit, versioned, and validated. Use discriminated unions for
+protocols and exhaust all variants. Do not model immutable dataset versions as
+a mutable CRUD repository.

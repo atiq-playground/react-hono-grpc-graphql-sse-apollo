@@ -2,8 +2,10 @@
 
 ## Deep Boundaries
 
-- Put shared contracts and worker message shapes in `packages/shared`.
-- Put protobuf definitions and generated TypeScript in `packages/proto`.
+- Put browser-safe finding, query, time-range, and Dataset Event contracts in
+  `packages/shared`.
+- Put server-only ingestion protobuf definitions and generated TypeScript in
+  `packages/proto`.
 - Put reusable shadcn / Tailwind primitives in `packages/ui`.
 - Keep ClickHouse ingestion and gRPC producer details out of dashboard UI
   modules; the browser talks to the gateway over GraphQL and SSE only.
@@ -11,12 +13,12 @@
 ## Validated Contracts
 
 Validate once at each boundary with `zod/mini` and pass typed values inward.
-GraphQL and SSE success/error shapes, stream cursors, dataset versions, and
-worker messages must be explicit and stable. Do not invent a generic CRUD
-repository abstraction for immutable dataset versions or streamed blocks.
+GraphQL and SSE success/error shapes, pagination cursors, Redis Stream ids,
+dataset versions, and Dataset Events must be explicit and stable. Do not invent
+a generic CRUD repository abstraction for immutable dataset versions.
 
 ## Immutable Publication
 
-Treat each Dataset Version as an immutable snapshot. Streamed Finding Blocks
-are append-only for a given version and cursor; never mutate a published block
-or rewrite history for an already-served sequence number.
+Treat each Dataset Version as an immutable identity namespace. Redis Stream
+entries are append-only, and current Finding changes create newer ClickHouse
+row versions; never rewrite an already-served event.

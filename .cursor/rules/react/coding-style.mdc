@@ -86,7 +86,7 @@ See [hooks.mdc](./hooks.mdc) for the full ruleset. Style highlights:
 - Local first (`useState`), lift only when shared
 - Context for cross-cutting state read by many components (theme, auth, i18n) - not for high-frequency updates
 - URL state for shareable filters/sorts; Context plus versioned local storage
-  for preferences; TanStack Query for remote artifacts
+  for preferences; Apollo Client for bounded GraphQL data and export status
 - Never duplicate state that can be derived - compute during render
 
 ## Class Components

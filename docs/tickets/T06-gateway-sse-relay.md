@@ -1,5 +1,11 @@
 # T06 Gateway SSE relay
 
+> **Superseded** by [ADR-0001](../adr/0001-clickhouse-authoritative-query-engine.md).
+> Base64 `finding-block` frames and the gateway-to-producer fill are obsolete.
+> The still-required reconnect-without-duplication behavior moves to the
+> `DatasetEvent` relay with Redis Stream catch-up in
+> [T22](T22-gateway-sse-change-relay.md). Content below is kept as history.
+
 ## Outcome
 
 `apps/gateway` exposes a same-origin SSE endpoint that relays protobuf blocks

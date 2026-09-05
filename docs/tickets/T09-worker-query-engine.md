@@ -1,5 +1,12 @@
 # T09 Worker query engine
 
+> **Superseded** by [ADR-0001](../adr/0001-clickhouse-authoritative-query-engine.md).
+> Filtering, sorting, search suggestions, pagination, and exact `kaiStatus`
+> semantics move to the ClickHouse-backed GraphQL layer in
+> [T21](T21-gateway-graphql-queries.md); CSV export in current sort order moves
+> to the server-side export job in [T24](T24-server-side-export.md). Content
+> below is kept as history.
+
 ## Outcome
 
 The worker answers filter, sort, search, pagination, and export requests against

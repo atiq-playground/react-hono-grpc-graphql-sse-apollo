@@ -16,14 +16,18 @@ boundaries, or incorrect core behavior. Do not block on personal style.
 
 - Preserve the three apps (`dashboard`, `gateway`, `producer`) and Nx dependency
   direction: apps may import `packages/*`; packages never import apps.
-- Keep control plane (GraphQL) separate from data plane (gRPC / Redis / SSE).
-  Reject GraphQL subscriptions for the findings firehose.
-- Keep the compact columnar index owned by the browser Web Worker; reject
-  full-corpus duplication into Zustand or the React tree.
-- Validate boundaries with `zod/mini`: stream cursors, worker messages, URL
-  state, preferences, and gateway inputs.
+- Keep control plane (GraphQL) separate from data plane (gRPC ingestion /
+  Redis Stream / SSE `DatasetEvent`s). Reject GraphQL subscriptions for live
+  changes and reject SSE payloads that carry bulk dataset rows.
+- Keep ClickHouse authoritative for queries (ADR-0001); reject full-corpus
+  accumulation in Zustand, the Apollo cache, or the React tree, and reject
+  protobuf decoding or `packages/proto` imports in `apps/dashboard`.
+- Validate boundaries with `zod/mini`: pagination cursors, `Last-Event-ID`,
+  `DatasetEvent` payloads, GraphQL arguments, URL state, preferences, and
+  gateway inputs. Reject interpolated identifiers or values in ClickHouse SQL.
 - Keep filtering, sorting, suggestions, pagination, and export off the React
-  render thread.
+  render thread; they belong in bounded GraphQL queries and the server-side
+  export job.
 - Use Apollo Client for GraphQL control-plane data, URL parameters for
   shareable filter/sort state, and Context plus versioned local storage for
   preferences.

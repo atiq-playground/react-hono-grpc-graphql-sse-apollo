@@ -152,13 +152,14 @@ const isOnline = useSyncExternalStore(
 
 ## Dashboard-Specific Hooks
 
-- Keep TanStack Query hooks focused on remote artifact lifecycle.
+- Keep Apollo hooks focused on bounded GraphQL operations and explicit
+  loading/error/empty state.
 - Keep React Router search-parameter parsing and serialization in a validated
   URL-state seam.
 - Preference hooks must version local-storage data and recover from invalid
   values.
-- Web Worker hooks must clean up listeners, terminate owned workers, validate
-  message versions, and ignore stale responses.
+- The app-wide Dataset Event hook must validate JSON events, close EventSource
+  listeners, debounce bounded refetches, and never log untrusted payloads.
 
 ## Stale Closure Trap
 

@@ -1,0 +1,270 @@
+fragment ExploreFindingFields on FindingRow {
+  id
+  cve
+  severity
+  cvss
+  status
+  packageName
+  packageVersion
+  repo
+  image
+  publishedAt
+}
+
+query ExploreFindings(
+  $filters: FindingFiltersInput
+  $sort: FindingSortInput
+  $search: String
+  $timeRange: TimeRangeInput
+  $analysisMode: AnalysisMode = ALL
+  $after: String
+  $first: Int = 50
+) {
+  findings(
+    filters: $filters
+    sort: $sort
+    search: $search
+    timeRange: $timeRange
+    analysisMode: $analysisMode
+    after: $after
+    first: $first
+  ) {
+    edges {
+      cursor
+      node {
+        ...ExploreFindingFields
+      }
+    }
+    pageInfo {
+      endCursor
+      hasNextPage
+    }
+    totalCount
+  }
+}
+
+query FindingFacets(
+  $filters: FindingFiltersInput
+  $timeRange: TimeRangeInput
+  $analysisMode: AnalysisMode = ALL
+) {
+  facets(filters: $filters, timeRange: $timeRange, analysisMode: $analysisMode) {
+    severity {
+      value
+      count
+    }
+    status {
+      value
+      count
+    }
+    group {
+      value
+      count
+    }
+    repo {
+      value
+      count
+    }
+    image {
+      value
+      count
+    }
+    packageType {
+      value
+      count
+    }
+    advisoryType {
+      value
+      count
+    }
+    kaiStatus {
+      value
+      count
+    }
+    riskFactors {
+      value
+      count
+    }
+  }
+}
+
+query VulnerabilityOverview($filters: FindingFiltersInput, $timeRange: TimeRangeInput) {
+  vulnerabilityOverview(filters: $filters, timeRange: $timeRange) {
+    totals {
+      total
+      uniqueCves
+      analysisCount
+      aiAnalysisCount
+      averageCvss
+    }
+    severityDistribution {
+      key
+      label
+      count
+    }
+    statusDistribution {
+      key
+      label
+      count
+    }
+    byRepository {
+      key
+      label
+      count
+    }
+    byImage {
+      key
+      label
+      count
+    }
+    topPackages {
+      key
+      label
+      count
+    }
+    riskFactorDistribution {
+      key
+      label
+      count
+    }
+    ageBuckets {
+      key
+      label
+      count
+    }
+    fixAvailability {
+      key
+      label
+      count
+    }
+    cvesFoundVsFixed {
+      found
+      fixed
+    }
+    timeToFixBuckets {
+      key
+      label
+      count
+    }
+    publishedTrend {
+      month
+      count
+    }
+  }
+}
+
+query FindingDetail($id: ID!) {
+  finding(id: $id) {
+    id
+    group
+    repo
+    image
+    cve
+    severity
+    cvss
+    status
+    packageName
+    packageVersion
+    packageType
+    path
+    advisoryType
+    buildType
+    type
+    description
+    cause
+    exploit
+    fixDate
+    published
+    layerTime
+    link
+    owner
+    vecStr
+    kaiStatus
+    riskFactors
+    applicableRules
+    publishedAt
+    fixedAt
+    updatedAt
+  }
+}
+
+query CompareAnalysis(
+  $filters: FindingFiltersInput
+  $timeRange: TimeRangeInput
+  $leftMode: AnalysisMode!
+  $rightMode: AnalysisMode!
+) {
+  left: findings(
+    filters: $filters
+    timeRange: $timeRange
+    analysisMode: $leftMode
+    first: 1
+  ) {
+    totalCount
+  }
+  right: findings(
+    filters: $filters
+    timeRange: $timeRange
+    analysisMode: $rightMode
+    first: 1
+  ) {
+    totalCount
+  }
+  leftFacets: facets(filters: $filters, timeRange: $timeRange, analysisMode: $leftMode) {
+    severity {
+      value
+      count
+    }
+    kaiStatus {
+      value
+      count
+    }
+  }
+  rightFacets: facets(filters: $filters, timeRange: $timeRange, analysisMode: $rightMode) {
+    severity {
+      value
+      count
+    }
+    kaiStatus {
+      value
+      count
+    }
+  }
+}
+
+query DatasetInfo {
+  datasetInfo {
+    version
+    totalCount
+    lastEventId
+  }
+}
+
+query SearchSuggestions($prefix: String!, $limit: Int = 10) {
+  searchSuggestions(prefix: $prefix, limit: $limit) {
+    value
+    field
+  }
+}
+
+mutation CreateExport($input: ExportInput!) {
+  createExport(input: $input) {
+    id
+    status
+    rowCount
+    downloadUrl
+    errorMessage
+    expiresAt
+  }
+}
+
+query ExportJob($id: ID!) {
+  exportJob(id: $id) {
+    id
+    status
+    rowCount
+    downloadUrl
+    errorMessage
+    expiresAt
+  }
+}

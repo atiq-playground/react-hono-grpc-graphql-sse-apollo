@@ -1,3 +1,4 @@
+import { TwinOrbit } from "@repo/ui/components/loading-ui/twin-orbit";
 import { type ComponentType, type LazyExoticComponent, lazy, Suspense } from "react";
 import { createBrowserRouter, RouterProvider } from "react-router";
 import { AppProviders } from "./app/providers";
@@ -20,12 +21,10 @@ const DetailPage = lazy(loadDetailRoute);
 function RouteFallback({ message }: { message: string }) {
   return (
     <div
-      className="flex min-h-[24rem] items-center justify-center text-sm text-muted-foreground"
-      role="status"
-      aria-live="polite"
+      className="flex min-h-[24rem] items-center justify-center text-muted-foreground"
       aria-busy="true"
     >
-      {message}
+      <TwinOrbit className="size-2.5" aria-label={message} />
     </div>
   );
 }

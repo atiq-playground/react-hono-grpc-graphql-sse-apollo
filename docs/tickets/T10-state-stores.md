@@ -1,5 +1,13 @@
 # T10 Zustand store and Context boundaries
 
+> **Superseded** by [ADR-0001](../adr/0001-clickhouse-authoritative-query-engine.md).
+> Page-slice and worker-progress state is obsolete. The store shrinks to live
+> connection state, `lastEventId`, `pendingUpdates`, and bounded recent events
+> in [T25](T25-dashboard-data-layer.md). `BroadcastChannel` synchronization
+> was ultimately not shipped; a bounded recent Finding-event list supports
+> detail/live presentation. Context boundaries remain valid. Content below is
+> kept as history.
+
 ## Outcome
 
 Stream data lands in a Zustand store using the redux middleware, mutated outside

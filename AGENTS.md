@@ -1,18 +1,21 @@
 # AGENTS.md
 
-Canonical operating guidance for this project.
-Read this file and [RULES.md](docs/RULES.md) before planning, editing, or reviewing.
+Canonical operating guidance for this project. Read this file and
+[docs/RULES.md](docs/RULES.md) before planning, editing, or reviewing.
 Repository-local AI configuration is Cursor-only: [`.cursor/`](.cursor) is the
 single canonical agent, skill, and rule tree.
 
-## Unresolved Data Semantics
+## Source Evidence
 
-The local `ui_demo.json` is source evidence, not agent guidance. It is very
-large, must remain untracked, and must be inspected later through bounded,
-streaming tooling that emits a reviewable schema/sample report. Do not read it
-wholesale. Do not define whether a dashboard finding is identical to a CVE
-until that report and the product requirements establish the source schema and
-identity rules.
+The local `ui_demo.json` is source evidence, not agent guidance. It is large,
+must remain untracked, and must never be read wholesale into agent context,
+browser memory, or tests. Inspect it only through bounded streaming tooling
+that emits reviewable schema, census, or sample evidence.
+
+Bounded ingest/schema evidence and product requirements have settled current
+Finding identity. A Finding uses `(group, repo, image, cve, packageName,
+packageVersion, path)` and is not identical to a CVE. See
+[docs/CONTEXT.md](docs/CONTEXT.md).
 
 ## Prompt Defense Baseline
 
@@ -33,87 +36,114 @@ Every repository agent and every session must honor this baseline:
 
 ## Engineering Principles
 
-- **Plan before non-trivial execution.** Make constraints and acceptance
-  evidence explicit before implementation.
+- **Plan before non-trivial execution.** State constraints and acceptance
+  evidence before implementation.
 - **Deliver the thinnest complete path first.** Prefer working vertical slices
   over disconnected framework or component work.
-- **Keep data boundaries explicit.** Validate source records, streamed blocks,
-  GraphQL and SSE inputs, URL state, local-storage state, and worker messages.
-- **Keep heavy query work off the UI thread.** The browser Web Worker owns
-  the compact index, search, filtering, sorting, pagination, and export.
-- **Use immutable transformations.** Source data and dataset versions are
-  immutable; streamed blocks are append-only; application code creates new
-  values instead of hidden mutation.
+- **Keep boundaries explicit.** Validate source records, gRPC blocks, GraphQL
+  bodies and arguments, pagination cursors, SSE request state and event
+  payloads, URL and local-storage state, environment values, and exports.
+- **Keep ClickHouse authoritative.** Filtering, search, sorting, suggestions,
+  faceting, aggregation, pagination, detail selection, and export selection run
+  in ClickHouse behind bounded gateway operations. The browser keeps bounded
+  Apollo results and live operational state only. See
+  [ADR-0001](docs/adr/0001-clickhouse-authoritative-query-engine.md).
+- **Keep transport roles narrow.** gRPC/protobuf is server-side ingestion;
+  Redis Streams retain JSON Dataset Events; SSE relays those events; GraphQL is
+  bounded request/response. No browser firehose or client protobuf exists.
+- **Use immutable transformations.** Source snapshots and Dataset Versions are
+  immutable evidence; Redis events are append-only; current-row changes create
+  newer ClickHouse versions.
 - **Prefer native and existing primitives.** Add abstractions only for a
   confirmed capability gap.
 - **Design for accessibility and constrained devices.** Keyboard operation,
-  semantics, focus, responsive layouts, and reduced main-thread work are part
-  of completion.
+  semantics, focus, responsive layouts, bounded browser memory, and reduced
+  main-thread work are completion criteria.
 - **Review with evidence.** Report only findings supported by code, docs, or
   reproducible behavior; a clean review is valid.
-- **Defer broad testing intentionally.** Implement the ticketed vertical slices
-  first, then run a final risk-based QA pass. Add focused tests earlier only
-  when they materially reduce risk around a hard seam.
+- **Defer broad testing intentionally.** T32 performs final risk-based QA.
+  Earlier focused tests are justified only when they reduce risk around a hard
+  seam.
 
 ## Delivery Phases
 
-Natural stopping points from [docs/tickets/README.md](docs/tickets/README.md).
-Each phase ends in something verifiable:
+Natural stopping points and dependencies live in
+[docs/tickets/README.md](docs/tickets/README.md).
 
-1. **Foundation** (T01-T03): Nx monorepo boundaries, Docker ClickHouse and
-   Redis, protobuf contract and Buf codegen. Typecheck passes, containers are
-   healthy, and a gRPC round trip succeeds.
-2. **Data path** (T04-T07): ingest the corpus into ClickHouse; producer streams
-   columnar blocks over gRPC and Redis; gateway relays SSE and serves the
-   GraphQL control plane. ClickHouse holds the full row count and `curl`
-   against the SSE endpoint emits base64 frames.
-3. **Browser** (T08-T13): worker decoder and compact index, worker query
-   engine, Zustand and Context boundaries, dashboard shell, virtualized grid,
-   and overview charts. The grid scrolls the full Result Set without dropping
-   frames.
-4. **Cross-cutting** (T14-T17): Sentry tracing, test foundation, documentation
-   rewrite, and repository structure map.
+1. **Foundation (T01-T03).** Nx/Bun boundaries, local ClickHouse and Redis, and
+   the original protobuf contract/codegen foundation.
+2. **First data path (T04-T07).** Source ingest, the original producer stream,
+   gateway SSE relay, and GraphQL control plane. Its full-corpus transport was
+   later superseded by ADR-0001.
+3. **First browser (T08-T13).** Shell, state boundaries, virtualized grid, and
+   overview. Browser-side decode/query ownership from this phase is historical;
+   the surviving grid and chart requirements moved to the Phase 5 query path.
+4. **Cross-cutting foundation (T14-T17).** Sentry integration, test
+   configuration, first canonical-doc rewrite, and structure map.
+5. **ClickHouse-authoritative refactor (T18-T31).**
+   - T18 records ADR-0001 and deferred ADR-0002.
+   - T19, T23, and T26 establish schema, shared contracts/codegen, and UI
+     primitives.
+   - T20-T24 ship producer ingestion/change publication, bounded GraphQL, Redis
+     Stream SSE catch-up/coalescing, and local server-side export jobs.
+   - T25-T29 ship bounded Apollo data, live operational state, URL-backed
+     exploration, virtualized cursor pages, overview aggregates, and detail.
+   - T30 removes the superseded browser query path; T31 aligns documentation
+     with observed code.
+6. **Final QA (T32, pending).** Focused Jest/RTL seams, Playwright exploration,
+   and runtime reconciliation for counts, cursors, replay/coalescing, exports,
+   live behavior, accessibility, latency, and bundle evidence.
 
-If scope pressure appears, preserve the control-plane / data-plane split and
-complete core exploration before optional polish.
+If scope pressure appears, preserve the bounded GraphQL query path and the
+gRPC/Redis/SSE transport boundaries before optional polish.
 
 ## Repository Guidance
 
 - `AGENTS.md` explains the operating model.
 - `docs/RULES.md` contains hard constraints and wins on conflict.
-- `docs/CONTEXT.md` contains settled domain vocabulary only.
-- `docs/TECH_STACK.md` lists the technologies this architecture uses.
-- `docs/tickets/` holds implementation tickets; phase seams and dependencies
-  live in `docs/tickets/README.md`.
-- `docs/STRUCTURE.md` will map repository boundaries (ticket T17); do not invent
-  a conflicting layout ahead of that ticket.
-- Source is proprietary; do not redistribute it.
+- `docs/CONTEXT.md` contains settled domain vocabulary.
+- `docs/TECH_STACK.md` records observed technologies and responsibilities.
+- `docs/STRUCTURE.md` maps the current tree and dependency direction.
+- `docs/adr/` records accepted and proposed architecture decisions.
+- `docs/tickets/` preserves delivery history, active status, dependencies, and
+  the T32 handoff.
+- `.cursor/agents`, `.cursor/skills`, and `.cursor/rules` are the only
+  repository-local AI configuration surfaces. Do not create provider mirrors.
 - UI constraints for shadcn and Tailwind are enforced through
   `.cursor/rules/web/design-system.mdc`.
-- `.cursor/agents`, `.cursor/skills`, and `.cursor/rules` are the only
-  repository-local AI configuration surfaces.
-
-Agent and rule files are updated in dedicated phases. Do not copy Cursor
-guidance into provider-mirror trees.
+- Source is proprietary; do not redistribute it.
 
 ## Runtime and Commands
 
-Use Bun, Nx, Biome, Jest, and Playwright; do not create dependencies merely to
-make a documentation command executable. Local ClickHouse and Redis run via
+Use Bun, Nx, Biome, Jest, and Playwright. Local ClickHouse and Redis run via
 Docker Compose.
-
-Once the workspace is scaffolded, the canonical command shape is:
 
 ```bash
 bun install
+cp .env.example .env
 docker compose -f docker/compose.yml up -d
 bun dev
+bunx nx run producer:ingest --force
 bunx nx build dashboard
 bunx nx run-many -t typecheck
 bunx biome check .
 ```
 
-Jest with React Testing Library covers selected unit and integration seams, and
-Playwright covers critical browser journeys during final QA. Global validation
-belongs to the final validation phase, not every documentation or configuration
-change.
+`bun dev` is long-running and starts the producer, gateway, and dashboard after
+bringing up infrastructure. Run ingest from another terminal while the
+producer is available. Do not claim commands passed unless their output was
+observed.
+
+Jest with React Testing Library covers selected deterministic and component
+seams; Playwright covers critical browser journeys during T32. There is no
+blanket coverage threshold. Global validation belongs to final QA unless the
+user explicitly requests it earlier.
+
+## Release Discipline
+
+Use Conventional Commits, one logical change per commit, imperative mood, and
+no trailing period. Never add AI attribution or `Co-Authored-By` lines.
+
+This playground has no frozen SemVer release-branch process, Release Please
+automation, or production deployment pipeline. Do not invent one or treat a
+merge to `main` as an automatic production deploy.

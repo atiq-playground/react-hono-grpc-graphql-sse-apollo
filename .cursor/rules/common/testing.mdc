@@ -8,9 +8,10 @@ not by a repository-wide coverage percentage or a mandatory test-first loop.
 - During final QA, use Jest for selected deterministic unit and integration
   tests, React Testing Library for user-observable component behavior, and
   Playwright for critical browser journeys.
-- Prioritize source parsing and validation, artifact and API contracts, Web
-  Worker messages and query behavior, URL-state round trips, preference
-  recovery, and the core exploration flow.
+- Prioritize source parsing and validation, GraphQL query compilation and
+  cursors, Dataset Event schemas and replay behavior, export safety, Apollo
+  cache merges, URL-state round trips, preference recovery, and the core
+  exploration flow.
 
 ## Test Tool Boundaries
 
@@ -60,6 +61,6 @@ Use descriptive names that explain the behavior under test:
 
 ```typescript
 test('returns no findings when filters match nothing', () => {})
-test('rejects an artifact with an unsupported schema version', () => {})
+test('rejects a dataset event with an unsupported version', () => {})
 test('recovers default preferences from invalid local storage', () => {})
 ```

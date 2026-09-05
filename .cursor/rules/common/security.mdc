@@ -1,7 +1,7 @@
 # Security Guidelines
 
-Treat the raw dataset, streamed blocks, GraphQL and SSE inputs, URL state,
-browser storage, exports, and fetched content as untrusted.
+Treat the raw dataset, server-side ingestion blocks, GraphQL and SSE inputs,
+URL state, browser storage, exports, and fetched content as untrusted.
 
 ## Required Controls
 

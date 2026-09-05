@@ -5,7 +5,9 @@ const config = {
   rootDir: ".",
   roots: ["<rootDir>/apps/dashboard", "<rootDir>/packages/ui", "<rootDir>/packages/shared"],
   testMatch: ["**/?(*.)+(test|spec).(ts|tsx)"],
+  testPathIgnorePatterns: ["/packages/shared/"],
   moduleNameMapper: {
+    "^(\\.{1,2}/.*)\\.js$": "$1",
     "^@repo/ui$": "<rootDir>/packages/ui/src/index.ts",
     "^@repo/ui/(.*)$": "<rootDir>/packages/ui/src/$1",
     "^@repo/shared$": "<rootDir>/packages/shared/src/index.ts",

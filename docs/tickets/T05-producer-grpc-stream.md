@@ -1,5 +1,12 @@
 # T05 Producer gRPC streaming service
 
+> **Superseded** by [ADR-0001](../adr/0001-clickhouse-authoritative-query-engine.md).
+> The full-corpus `StreamFindings` RPC and the Redis block channel are obsolete.
+> The producer is repurposed as the ingestion and change publisher in
+> [T20](T20-producer-ingest-publisher.md); ClickHouse-side streaming reads move
+> to bounded GraphQL queries in [T21](T21-gateway-graphql-queries.md). Content
+> below is kept as history.
+
 ## Outcome
 
 `apps/producer` serves the findings corpus over gRPC server-streaming, reading

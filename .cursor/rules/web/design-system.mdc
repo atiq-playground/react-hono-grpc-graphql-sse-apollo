@@ -25,8 +25,10 @@ primitives and Tailwind tokens in `packages/ui` over one-off markup.
   Recharts via shadcn charts for overview charts. Do not introduce a second
   grid or chart stack without confirmation.
 - Communicate severity and status with text or icon, not color alone.
-- Keep filtering, sorting, suggestions, pagination, and export in the browser
-  Web Worker, not render code.
+- Keep filtering, sorting, suggestions, pagination, and export in ClickHouse
+  behind bounded GraphQL queries and the server-side export job, not in render
+  code. Components bind to Apollo results and SSE `DatasetEvent` state; no
+  heavy transforms run on the render thread.
 
 ## Must Not
 

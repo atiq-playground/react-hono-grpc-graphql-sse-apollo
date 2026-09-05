@@ -179,11 +179,12 @@ types from schemas where supported. Do not add a validation dependency before
 the scaffold phase selects one.
 
 ```typescript
-const validatedManifest = manifestSchema.parse(input)
+const validatedEvent = datasetEventSchema.parse(input)
 ```
 
 ## Console.log
 
 - No debug `console.log` statements in production code.
-- Worker logs must be structured, bounded, and free of secrets or raw records.
+- Gateway and producer logs must be structured, bounded, and free of secrets
+  or raw records; browser rejection logs must not include untrusted payloads.
 - Use platform logging primitives unless a confirmed need justifies a library.

@@ -1,8 +1,8 @@
 /**
- * T03 transport smoke: real gRPC server-streaming of FindingBlock messages,
- * plus dictionary encode/decode round trip.
+ * Transport smoke: real gRPC client-streaming of FindingBlock messages,
+ * plus unary ApplyChanges and dictionary encode/decode round trips.
  *
- * Uses Node http2 (T03 risk: Bun http2 server is newer/less proven).
+ * Uses Node HTTP/2 to exercise the same server-only transport as producer.
  *
  * Run: bunx nx run proto:smoke
  */
@@ -17,10 +17,12 @@ import { createClient } from "@connectrpc/connect";
 import { connectNodeAdapter, createGrpcTransport } from "@connectrpc/connect-node";
 import { assertDictRoundTrip, encodeDictColumn } from "../src/dict.js";
 import {
+  ApplyChangesRequestSchema,
+  ApplyChangesResponseSchema,
   FindingBlockSchema,
-  FindingsService,
-  StreamRequestSchema,
-} from "../src/gen/findings/v1/findings_pb.js";
+  IngestBlocksResponseSchema,
+  IngestService,
+} from "../src/gen/findings/v2/findings_pb.js";
 import { encodeOffsetStringArrays } from "../src/offsets.js";
 
 const HOST = "127.0.0.1";
@@ -72,12 +74,28 @@ function sampleBlock(sequence: bigint, rowCount: number) {
 }
 
 function routes(router: ConnectRouter): void {
-  router.service(FindingsService, {
-    async *streamFindings(req) {
-      const start = req.afterSequence === 0n ? 1n : req.afterSequence + 1n;
-      for (let seq = start; seq <= 3n; seq++) {
-        yield sampleBlock(seq, 4);
+  router.service(IngestService, {
+    async ingestBlocks(blocks) {
+      let blockCount = 0n;
+      let rowCount = 0n;
+      for await (const block of blocks) {
+        blockCount += 1n;
+        rowCount += BigInt(block.rowCount);
       }
+      return create(IngestBlocksResponseSchema, {
+        datasetVersion: DATASET_VERSION,
+        blocksWritten: blockCount,
+        sourceRowsWritten: rowCount,
+        terminalEventId: "1-0",
+        currentFindings: rowCount,
+      });
+    },
+    applyChanges(request) {
+      return create(ApplyChangesResponseSchema, {
+        upsertsApplied: BigInt(request.upserts?.rowCount ?? 0),
+        deletesApplied: BigInt(request.deleteFindingIds.length),
+        eventIds: ["2-0"],
+      });
     },
   });
 }
@@ -95,28 +113,30 @@ async function main(): Promise<void> {
   try {
     const transport = createGrpcTransport({
       baseUrl: `http://${HOST}:${PORT}`,
-      httpVersion: "2",
     });
-    const client = createClient(FindingsService, transport);
-    const received: bigint[] = [];
-    for await (const block of client.streamFindings(
-      create(StreamRequestSchema, {
-        afterSequence: 0n,
+    const client = createClient(IngestService, transport);
+    async function* blocks() {
+      for (let sequence = 1n; sequence <= 3n; sequence++) {
+        yield sampleBlock(sequence, 4);
+      }
+    }
+    const ingest = await client.ingestBlocks(blocks());
+    if (ingest.blocksWritten !== 3n || ingest.sourceRowsWritten !== 12n) {
+      throw new Error("Unexpected IngestBlocks response");
+    }
+    console.log(`gRPC client stream OK (${ingest.blocksWritten} FindingBlock messages)`);
+
+    const changes = await client.applyChanges(
+      create(ApplyChangesRequestSchema, {
         datasetVersion: DATASET_VERSION,
+        upserts: sampleBlock(1n, 1),
+        deleteFindingIds: ["0123456789abcdef0123456789abcdef"],
       }),
-    )) {
-      received.push(block.sequence);
-      if (block.rowCount !== 4) {
-        throw new Error(`Unexpected row_count ${block.rowCount}`);
-      }
-      if (!block.severity || block.severity.dictionary.length === 0) {
-        throw new Error("Missing severity dictionary on block");
-      }
+    );
+    if (changes.upsertsApplied !== 1n || changes.deletesApplied !== 1n) {
+      throw new Error("Unexpected ApplyChanges response");
     }
-    if (received.length !== 3 || received.join(",") !== "1,2,3") {
-      throw new Error(`Unexpected sequences: ${received.join(",")}`);
-    }
-    console.log(`gRPC stream OK (${received.length} FindingBlock messages)`);
+    console.log("gRPC ApplyChanges OK");
   } finally {
     await new Promise<void>((resolve, reject) => {
       server.close((err) => (err ? reject(err) : resolve()));
@@ -125,13 +145,13 @@ async function main(): Promise<void> {
 
   const genFile = path.join(
     path.dirname(fileURLToPath(import.meta.url)),
-    "../src/gen/findings/v1/findings_pb.ts",
+    "../src/gen/findings/v2/findings_pb.ts",
   );
   const source = readFileSync(genFile, "utf8");
   if (/\bnode:/.test(source) || /from ["']fs["']/.test(source)) {
     throw new Error("Generated protobuf contains Node-only imports");
   }
-  console.log("generated code browser-safe (no Node-only imports)");
+  console.log("generated protobuf has no unexpected Node built-in imports");
   console.log("proto smoke passed");
 }
 

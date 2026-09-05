@@ -14,8 +14,9 @@ Organize by feature or surface area, not by file type:
 apps/dashboard/src/
 ├── app/                 # providers and composition
 ├── routes/              # React Router route modules
-├── features/            # dashboard vertical slices
-└── query-worker/        # browser Web Worker (SSE decode + index)
+├── features/            # dashboard vertical slices (explore, overview, live)
+├── graphql/             # generated operations, cache type policies
+└── state/               # Zustand live/connection store
 ```
 
 ## CSS Custom Properties
@@ -78,7 +79,7 @@ Do not reach for generic wrapper `div` stacks when a semantic element exists.
 - Components: PascalCase (`ScrollySection`, `SurfaceCard`)
 - Hooks: `use` prefix (`useReducedMotion`)
 - CSS classes: kebab-case or utility classes
-- Worker messages and stream contracts: descriptive domain terms with explicit
+- `DatasetEvent` and GraphQL contracts: descriptive domain terms with explicit
   version fields
 
 Prefer shadcn primitives and Tailwind tokens from `packages/ui` for palette,

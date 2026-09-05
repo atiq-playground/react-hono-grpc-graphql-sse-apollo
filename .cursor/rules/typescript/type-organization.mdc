@@ -5,8 +5,9 @@ alwaysApply: false
 ---
 # Type Organization
 
-- Move a cohesive, substantial group of types or interfaces to a colocated
-  `*.types.ts` file when declarations dominate or obscure the implementation.
+- Move a cohesive, substantial group of **non-Zod** types or interfaces to a
+  colocated `*.types.ts` file when declarations dominate or obscure the
+  implementation.
 - Keep small, implementation-specific types local when extraction would reduce
   readability.
 - Export only the minimal type surface consumers need; keep supporting aliases
@@ -17,6 +18,9 @@ alwaysApply: false
 - Do not use `global.d.ts` for ordinary project types.
 - Do not extract types when doing so creates a circular dependency or weakens
   type safety.
+- **Zod exception:** schemas and `z.infer<>` types stay in the same file. Do
+  not peel Zod-inferred types into `*.types.ts`. See
+  [zod-organization.mdc](./zod-organization.mdc).
 
 ```typescript
 // BAD: src/types/common.types.ts

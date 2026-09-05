@@ -5,6 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/svg+xml" href="/src/assets/logo.svg" />
     <title>Dashboard</title>
+    <script>
+      try {
+        const prefs = JSON.parse(localStorage.getItem("svd.prefs.v1") || "null");
+        if (prefs && prefs.theme === "dark") {
+          document.documentElement.classList.add("dark");
+          document.documentElement.style.colorScheme = "dark";
+        }
+      } catch {
+        /* recover to light */
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

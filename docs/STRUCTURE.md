@@ -1,50 +1,212 @@
-# Repository structure map
+# Repository structure
 
-Annotated map of the shipped monorepo as of the gRPC-to-SSE dashboard tickets.
-Written against the tree that exists, not the original Cloudflare/R2 plan.
+Observed map after T30. Generated build output, dependencies, and TypeScript
+build metadata are omitted.
 
 ## Top level
 
-| Path | Owns |
-|---|---|
-| `apps/dashboard` | Vite + React SPA: shell, routes, Apollo control-plane client, Zustand store, Web Worker query path, charts/grid. |
-| `apps/gateway` | Hono HTTP process: Apollo GraphQL at `/graphql` (control plane) and SSE at `/api/stream` (data plane). |
-| `apps/producer` | gRPC `FindingsService` that reads ClickHouse and publishes columnar blocks to a Redis Stream. One-shot ClickHouse population lives in `apps/producer/scripts/ingest.ts` (`producer:ingest`), not in the runtime `src/` tree. |
-| `packages/proto` | Buf-managed `findings.proto`, generated TypeScript, dictionary/offset helpers. Shared contract for producer, gateway, and browser worker. |
-| `packages/ui` | Shared shadcn / Tailwind primitives consumed by the dashboard. |
-| `packages/shared` | Versioned worker message contracts validated with `zod/mini`. |
-| `docker/` | Compose stack for ClickHouse + Redis and ClickHouse DDL/config. |
-| `tools/infra` | Infra operational scripts: Compose `up` / `wait-healthy` / `down` helpers and the `@clickhouse/client` + Redis pub/sub smoke check. |
-| `e2e/` | Playwright specs (none yet; foundation only). |
-| `docs/tickets/` | Implementation tickets and dependency graph. |
+```text
+.
+├── apps/
+│   ├── dashboard/        React/Vite browser application
+│   ├── gateway/          Hono GraphQL, SSE, and export HTTP boundary
+│   └── producer/         gRPC ingestion and Dataset Event publisher
+├── packages/
+│   ├── proto/            server-only protobuf v2 contract and helpers
+│   ├── shared/           isomorphic query/event/domain contracts
+│   └── ui/               shadcn-style primitives and Tailwind theme
+├── tools/infra/          local Compose lifecycle and smoke tooling
+├── docker/               ClickHouse and Redis local services
+├── e2e/                  Playwright suite location; specs arrive in T32
+├── scripts/              workspace dev and e2e launchers
+├── docs/                 canonical docs, ADRs, and tickets
+└── .cursor/              repository agents, skills, and rules
+```
 
-## Dependency direction
+Root `package.json` exposes Bun/Nx entry points. `nx.json`, `tsconfig*.json`,
+and `biome.json` define orchestration, strict project references, and supported
+format/lint inputs. `.env.example` is the local server configuration template.
 
-- `apps/*` may depend on `packages/*`.
-- Packages must not depend on apps.
-- `packages/proto` is the shared wire contract for all three applications.
-- Enforced in T01 via Nx tags (`type:app` / `type:package`) and `@nx/enforce-module-boundaries`.
+## Application boundaries
 
-## Process boundaries
+### `apps/producer`
 
-1. **gRPC (producer → consumers):** columnar `FindingBlock` server-streaming RPC. The producer reads ClickHouse and publishes the same encoded blocks to Redis.
-2. **SSE (gateway → browser):** gateway reads the Redis Stream and emits base64 `text/event-stream` frames. GraphQL never carries the firehose.
-3. **Main thread vs Web Worker:** the worker owns SSE ingest, protobuf decode, the compact columnar index, filtering, sorting, pagination, and export. React renders page slices and control-plane GraphQL data only.
+```text
+apps/producer/
+├── scripts/
+│   ├── ingest.ts         bounded source parser and gRPC ingest client
+│   ├── census.ts         bounded source census
+│   ├── empty-groups.ts   bounded source inspection helper
+│   └── smoke.ts          v2 IngestService smoke client
+└── src/
+    ├── server.ts                    HTTP/2 Connect service composition
+    ├── ingest-service.ts            IngestBlocks and ApplyChanges handlers
+    ├── clickhouse-writer.ts         bounded row inserts and current counts
+    ├── event-publisher.ts           validated Redis Stream XADD
+    ├── simulator.ts                 opt-in development changes
+    ├── block.ts                     FindingBlock conversion
+    ├── finding-row.ts               source normalization
+    ├── env.ts                       validated producer configuration
+    └── *.types.ts                   colocated implementation contracts
+```
 
-## Generated code
+The ingest script streams `apps/producer/data/raw/ui_demo.json`, which is
+gitignored, into bounded protobuf v2 blocks. The producer writes ClickHouse and
+publishes JSON Dataset Events. It does not serve historical findings to the
+browser.
 
-| Artifact | Location | Committed? |
-|---|---|---|
-| Buf / `protoc-gen-es` output | `packages/proto/src/gen/` | Yes (reproducible via `buf generate`) |
-| GraphQL client operation types | `apps/dashboard/src/graphql/generated.ts` | Yes (hand-maintained stub aligned to `schema.graphql`; full codegen can replace later) |
+### `apps/gateway`
 
-## Deviations from early plan
+```text
+apps/gateway/src/
+├── server.ts                         Hono/Apollo route composition
+├── env.ts                            validated gateway configuration
+├── sse.ts                            identity-encoded SSE route
+├── sse-redis-stream.ts               XREAD, replay, and stream-id validation
+├── sse-coalescing.ts                 burst invalidation policy
+├── sentry.ts
+└── graphql/
+    ├── schema.graphql                bounded public schema
+    ├── context.ts                    ClickHouse and Redis clients
+    ├── input.ts                      GraphQL input validation and clamping
+    ├── cursor.ts                     opaque keyset cursor codec
+    ├── query-compiler.ts             parameterized filters/order/keysets
+    ├── clickhouse.ts                 JSONCompactEachRow execution boundary
+    ├── findings-query.ts             connection, detail, suggestions
+    ├── facets-query.ts
+    ├── overview-query.ts
+    ├── overview-query-statements.ts
+    ├── dataset-query.ts
+    ├── finding-fields.ts
+    ├── resolvers/                    operation-specific resolvers
+    └── export/
+        ├── export-query.ts            CSVWithNames query compilation
+        ├── export-worker.ts           asynchronous local job queue
+        ├── job-store.ts               expiring Redis metadata
+        ├── artifact.ts                confined local-disk paths
+        ├── download-route.ts          streamed CSV response
+        └── export.types.ts
+```
 
-- Gateway is named `gateway` (not `backend`) because the producer is also a backend service.
-- Redis Streams (not only PUBLISH/SUBSCRIBE) store blocks so SSE clients can resume with `Last-Event-ID`.
-- Findings-table uniqueness after ingest is **44 groups / 1025 images** for vulnerability rows: source census is 45 / 1030, but one group and five images have empty vulnerability arrays and produce no rows (see `apps/producer/scripts/census.ts`).
-- Local `ui_demo.json` lives at gitignored `apps/producer/data/raw/` (copied from the sibling dashboard repo when present).
+The gateway talks directly to ClickHouse for every query. It does not call the
+producer for browser reads and does not import `packages/proto`.
 
-## Naming note
+### `apps/dashboard`
 
-`apps/gateway` was chosen over `backend` so both producer and gateway read as peer backend processes with distinct roles (warehouse stream vs browser-facing gateway).
+```text
+apps/dashboard/
+├── codegen.ts
+├── vite.config.ts
+└── src/
+    ├── app/                  providers, shell, route loaders, URL state
+    ├── routes/               lazy overview, explore, finding, compare routes
+    ├── graphql/
+    │   ├── operations.graphql
+    │   ├── operations.ts
+    │   ├── variables.ts
+    │   ├── cache.ts          bounded connection merge policy
+    │   └── __generated__/    GraphQL Code Generator output
+    ├── state/
+    │   └── dashboard-store.ts  live operational state only
+    └── features/
+        ├── dataset/          datasetInfo hook
+        ├── live/             app-wide EventSource integration
+        ├── time-range/       dashboard TimeRange binding
+        ├── explore/          filters, toolbar, cursor pages, grid, export
+        ├── overview/         aggregate hooks and chart/card groups
+        ├── detail/           finding query hook
+        └── finding-detail/   source-preserving detail presentation
+```
+
+There is no dashboard query worker, producer client, browser protobuf
+dependency, or hand-maintained legacy GraphQL type file.
+
+## Packages
+
+### `packages/shared/src`
+
+- `finding-fields.ts` and `finding-fields.types.ts`: field registry, row/detail
+  shapes, query allowlists.
+- `finding-filters.ts`: filters, sorts, finding ids, and pagination cursors.
+- `time-range.ts`: Live, rolling, and custom `publishedAt` ranges.
+- `analysis-mode.ts`: exact `kaiStatus` exclusions.
+- `dataset-events.ts` and `dataset-event-codec.ts`: versioned JSON live
+  contract and isolated codec.
+- `clickhouse-datetime.ts`: explicit ClickHouse-to-wire date conversion.
+
+This package has only `zod` as a runtime dependency and remains browser-safe.
+
+### `packages/proto`
+
+- `proto/findings/v2/findings.proto`: `FindingBlock`, `IngestBlocks`, and
+  `ApplyChanges`.
+- `src/gen/findings/v2/findings_pb.ts`: generated protobuf TypeScript.
+- `src/dict.ts`, `src/offsets.ts`: bounded column helpers.
+- `scripts/smoke.ts`: v2 transport smoke.
+
+Only the producer and server-side ingest tooling consume this package.
+
+### `packages/ui/src`
+
+- `components/ui/`: button, input, label, select, table, card, badge,
+  skeleton, popover, tooltip, toggle, toggle group, and calendar primitives.
+- `components/time-range/`: generic compound TimeRange control.
+- `styles/globals.css`: shared Tailwind/CSS-variable theme.
+
+The UI package has no dashboard domain, routing, GraphQL, or server imports.
+
+## Infrastructure
+
+- `docker/compose.yml` pins ClickHouse 24.12.2.29 and Redis 7.4.2, with health
+  checks, memory bounds, ports, and named volumes.
+- `docker/clickhouse/init/01_findings.sql` defines the identity-aware
+  `ReplacingMergeTree`, materialized dates/id, indexes, and projections.
+- `docker/clickhouse/config.d/` contains local listen and memory settings.
+- `tools/infra/scripts/` owns `up`, health wait, teardown, and a local
+  ClickHouse/Redis smoke check.
+
+## Dependency and runtime flow
+
+```mermaid
+flowchart TD
+  Shared["packages/shared"]
+  Proto["packages/proto"]
+  UI["packages/ui"]
+  Producer["apps/producer"]
+  Gateway["apps/gateway"]
+  Dashboard["apps/dashboard"]
+  CH[("ClickHouse")]
+  RS[("Redis Stream")]
+
+  Proto --> Producer
+  Shared --> Producer
+  Shared --> Gateway
+  Shared --> Dashboard
+  UI --> Dashboard
+  Producer -->|"insert / current-row versions"| CH
+  Producer -->|"XADD JSON DatasetEvent"| RS
+  Gateway -->|"bounded SQL / CSV stream"| CH
+  RS -->|"XREAD replay + live"| Gateway
+  Dashboard -->|"GraphQL request/response"| Gateway
+  Gateway -->|"SSE JSON events"| Dashboard
+```
+
+Nx project files classify apps and packages with tags, but the current
+configuration does not declare an `enforce-module-boundaries` rule. The
+direction remains a repository contract checked in review: applications may
+import packages; packages must not import applications. Additional boundaries
+are architectural: the dashboard must not import `packages/proto`, and the
+gateway must not route browser reads through the producer.
+
+## Generated and local-only material
+
+- GraphQL generated output: `apps/dashboard/src/graphql/__generated__/`,
+  regenerated with `bunx nx run dashboard:codegen`.
+- Buf generated output: `packages/proto/src/gen/findings/v2/`, regenerated
+  with `bunx nx run proto:buf-generate`.
+- Local source data: `apps/producer/data/raw/`, untracked and never read
+  wholesale by agents or tests.
+- Local export artifacts: `.data/exports/` by default; single-node and
+  disposable.
+- Build outputs, dependency directories, Nx caches, and TypeScript build
+  metadata are not source boundaries.

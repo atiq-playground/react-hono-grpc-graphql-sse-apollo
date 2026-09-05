@@ -1,5 +1,13 @@
 # T12 Virtualized grid
 
+> **Superseded** by [ADR-0001](../adr/0001-clickhouse-authoritative-query-engine.md).
+> Virtualization over the Result Set, filter and sort controls, detail
+> navigation, and accessibility requirements are carried by
+> [T27](T27-explore-rewrite.md) over Apollo cursor pages; export moves to
+> [T24](T24-server-side-export.md). "Usable while the stream is still
+> ingesting" becomes "usable while the dataset is changing (Live)" per the ADR.
+> Content below is kept as history.
+
 ## Outcome
 
 The explore route renders the full Result Set in a virtualized grid that scrolls

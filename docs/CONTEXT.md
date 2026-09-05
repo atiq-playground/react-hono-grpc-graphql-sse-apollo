@@ -1,94 +1,176 @@
 # Security Vulnerability Dashboard
 
-A dashboard for exploring vulnerability information about software packages from
-a large supplied source dataset or analytical warehouses such as ClickHouse.
+Settled domain vocabulary for the shipped ClickHouse-authoritative dashboard.
 
-## Language
+## Data and identity
 
-**Source Dataset**:
-The complete supplied JSON corpus used to produce one dashboard data release.
-It is evidence about the source domain and may not be treated as a product
-schema until measured.
+**Source Dataset**
 
-**Source Record**:
-One occurrence exactly as represented within the hierarchy of a Source Dataset,
-identified only within its Dataset Version. Separate occurrences remain
-separate Source Records even when they share the same CVE, package attributes,
-or canonical record content.
-_Avoid_: Finding, CVE, vulnerability instance
+The complete supplied JSON corpus used to produce one dashboard dataset
+version. It is untrusted source evidence and remains untracked.
 
-**Affected Package**:
-A software package described by a Source Record as affected by vulnerability
-information.
-_Avoid_: Application, repository, dependency (unless the source explicitly
-establishes that meaning)
+**Source Record**
 
-**Source Context**:
-The group, repository, image, and Affected Package information to which a
-Source Record belongs. Source-provided context values remain preserved when
-blank rather than being omitted or inferred.
-_Avoid_: Source Record identity, CVE
+One vulnerability object as it occurs in the source hierarchy. The bounded
+ingest census found exactly **236,656 Source Records**. Separate occurrences
+remain separate Source Records even when their current Finding identity is the
+same.
+_Avoid_: Finding, CVE, current row
 
-**Vulnerability Attribute**:
-A source-provided property used to describe, group, filter, sort, or explain
-Source Records. Missing and unknown values remain distinct from inferred values.
-_Avoid_: Metadata (when a specific source property is meant)
+**Source Context**
 
-**CVE**:
-A non-unique Vulnerability Attribute carried by a Source Record. Multiple Source
-Records may have the same CVE without becoming one record.
-_Avoid_: Source Record, unique vulnerability identity
+The source-provided group, repository, image, and package context around a
+Source Record. Blank values are preserved rather than inferred.
 
-**Risk Factor**:
-A source-provided factor that helps a user understand prioritization or
-exposure. The dashboard does not invent a Risk Factor when the source omits it.
-_Avoid_: Risk score (unless the source establishes a numeric score)
+**Affected Package**
 
-**Dataset Version**:
-One immutable published snapshot derived from a Source Dataset. All dashboard
-views in a session and all Source Record identities refer to one Dataset Version;
-no Source Record identity is claimed across Dataset Versions.
-_Avoid_: Latest data (when a specific snapshot is meant), mutable dataset
+The package named by a Source Record. Package name, package version, and path
+all participate in current Finding identity.
 
-**Finding Block**:
-A columnar protobuf message carrying parallel typed columns (and dictionary
-state) for a contiguous slice of Source Records in one Dataset Version. Blocks
-are the unit of gRPC streaming, Redis fan-out, and SSE relay.
-_Avoid_: Row-oriented JSON batch, GraphQL payload
+**CVE**
 
-**Stream Cursor**:
-A resume position for the findings firehose, typically a block sequence number
-(and Dataset Version). Clients reconnect with the last applied cursor so the
-stream continues without duplicates or gaps.
-_Avoid_: Page offset, GraphQL pagination cursor (unless the product equates them)
+A non-unique vulnerability attribute. One CVE may appear in many Findings and
+is never the Finding identifier.
 
-**Compact Index**:
-The in-worker columnar representation of the Dataset Version built from decoded
-Finding Blocks (typed arrays and string dictionaries). The Web Worker owns this
-index; filtering, sorting, pagination, and export run against it off the main
-thread.
-_Avoid_: Apollo cache, Zustand store of all rows, raw Source Dataset
+**Finding**
 
-**Result Set**:
-The Source Records in the active Dataset Version that match the current search
-and filters, in the current sort order, before page slicing.
-_Avoid_: Page (which is only one slice), all records
+The current logical vulnerability occurrence identified by:
 
-**Record Detail**:
-The source-preserving information shown for one selected Source Record.
-_Avoid_: Finding detail, CVE detail
+`(group, repo, image, cve, packageName, packageVersion, path)`
 
-**Analysis**:
-A Result Set that excludes Source Records whose `kaiStatus` is exactly
-`invalid - norisk`. Source Records without `kaiStatus` remain included.
-_Avoid_: AI Analysis, CVE deduplication
+ClickHouse derives `findingId` from that tuple. The 236,656 Source Records
+contain three duplicate identity tuples; `ReplacingMergeTree` plus `FINAL`
+collapses them, so a freshly ingested dataset has **236,653 authoritative
+current Findings**. The duplicate records differ in non-identity advisory
+attributes. A Finding is not a CVE and is not a claim of identity across
+Dataset Versions.
 
-**AI Analysis**:
-A Result Set that excludes Source Records whose `kaiStatus` is exactly
-`ai-invalid-norisk`. Source Records without `kaiStatus` remain included.
-_Avoid_: Analysis, inferred analysis
+**Dataset Version**
 
-**Dashboard Preferences**:
-User-specific display choices that do not change which Source Records belong to
-a Result Set.
-_Avoid_: Filters, sort state
+An immutable identifier for one source ingest and its live-event namespace. It
+is not renamed or reused for another corpus. Current Finding state may advance
+within that namespace through newer ClickHouse row versions and append-only
+Redis events; consumers never rewrite prior events or infer cross-version
+Finding identity.
+
+## Query and presentation
+
+**Finding Row**
+
+The bounded Explore representation returned on a `FindingConnection` edge and
+carried by a `finding-upserted` event. It contains only row-level fields needed
+by the grid, not the full source-preserving record.
+_Avoid_: Finding Detail, complete Source Record
+
+**Finding Detail**
+
+The full selected representation returned by `finding(id)`, including package
+location, narrative, advisory, dates, arrays, and current update metadata.
+_Avoid_: CVE detail, Finding Row
+
+**Finding Connection**
+
+The bounded GraphQL result of `findings(...)`: ordered `edges`, `pageInfo`, and
+the authoritative `totalCount` for the active query.
+
+**Finding Edge**
+
+One `Finding Row` paired with the cursor for that exact position in the active
+sort order.
+
+**Cursor**
+
+An opaque, validated URL-safe keyset-pagination token containing the current
+sort value and `findingId` tiebreaker. The browser stores it in the `after` URL
+parameter and must not edit or interpret it.
+_Avoid_: Redis Stream ID, offset
+
+**Time Range**
+
+A filter over ClickHouse `publishedAt`, materialized from the source
+`published` string. Presets are `live`, `24h`, `7d`, `30d`, `1y`, `5y`, and
+`custom`. Rolling presets resolve to an absolute start and end at request time;
+custom requires validated ISO `from` and `to` values.
+
+**Live**
+
+The unbounded Time Range: no `publishedAt` window plus current
+`DatasetEvent`s. In Live mode, the client updates normalized rows and performs
+bounded refetches. In windowed modes, data-change events increment a pending
+count until the user refreshes.
+
+**Aggregate**
+
+A bounded ClickHouse result that summarizes the current query domain, such as
+totals, distributions, top entities, age or fix buckets, and published trend.
+The browser renders aggregates; it does not derive them from loaded pages.
+
+**Facet**
+
+A ClickHouse-computed value/count list used to populate filters. Facets respect
+the active filters, Time Range, and Analysis mode supplied to the operation.
+
+**Compare**
+
+A two-sided view of Analysis modes over one filter and Time Range domain.
+Each side applies that mode's exact `kaiStatus` exclusion.
+_Avoid_: Finding pair, Dataset Version diff, time-range A/B
+
+**Export Job**
+
+An asynchronous gateway task created through GraphQL. Redis stores expiring job
+metadata; ClickHouse streams spreadsheet-safe `CSVWithNames` output to a local
+gateway artifact; `/api/exports/:id` serves it when ready. Local disk makes this
+a single-node playground boundary, not durable shared storage.
+
+## Live transport
+
+**Dataset Event**
+
+A versioned JSON notification published by the producer to a Redis Stream and
+relayed by the gateway over SSE. Current variants are `finding-upserted`,
+`finding-deleted`, `findings-changed`, `aggregates-invalidated`,
+`dataset-version-changed`, `export-ready`, and `resync-required`. Events carry
+changes or invalidation, never the historical corpus.
+
+**Redis Stream ID**
+
+The Redis entry identifier (`milliseconds-sequence`) used as the SSE `id` and
+accepted in `Last-Event-ID` for retained-event replay. It is not a GraphQL
+pagination Cursor. If the requested entry is absent or outside retained
+bounds, the gateway emits `resync-required`.
+
+**Finding Block**
+
+A bounded columnar protobuf batch used only by the ingest client and producer
+over the v2 gRPC `IngestService`. It is not a browser unit, Redis event, SSE
+payload, query result, or local index.
+
+## Source attributes and analysis
+
+**Vulnerability Attribute**
+
+A source-provided value used to describe, group, filter, sort, or explain a
+Finding. Missing, blank, and unknown values remain distinct.
+
+**Risk Factor**
+
+A source-provided factor that helps explain prioritization or exposure. The
+dashboard does not invent one when absent.
+
+**Analysis**
+
+The active query excluding only Findings whose `kaiStatus` is exactly
+`invalid - norisk`. Null `kaiStatus` remains included. No trimming,
+normalization, fuzzy match, or CVE deduplication is applied.
+
+**AI Analysis**
+
+The active query excluding only Findings whose `kaiStatus` is exactly
+`ai-invalid-norisk`. Null `kaiStatus` remains included. It is distinct from
+Analysis and does not infer an AI-generated status.
+
+**Dashboard Preferences**
+
+Versioned user-specific display choices stored separately from URL query
+state. Preferences never change which Findings belong to a connection.

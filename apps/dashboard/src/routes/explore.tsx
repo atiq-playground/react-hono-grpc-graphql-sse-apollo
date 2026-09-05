@@ -1,273 +1,136 @@
-import { gql, type TypedDocumentNode } from "@apollo/client";
-import { useSuspenseQuery } from "@apollo/client/react";
-import { Button, Input } from "@repo/ui";
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { FindingFilters, FindingSort } from "@repo/shared";
+import { Button } from "@repo/ui/components/ui/button";
+import { useCallback, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
 import { useStore } from "zustand";
+
 import { useDashboardStore } from "../app/dashboard-context";
 import { exploreStateToSearch, parseExploreSearch } from "../app/url-state";
-import type { ExploreBootstrapQuery, NoVariables } from "../graphql/generated";
-import { createQueryWorker, type QueryWorkerHandle } from "../query-worker/bridge";
-import type { PageRow } from "../state/dashboard-store";
-
-const STREAM_AND_FACETS: TypedDocumentNode<ExploreBootstrapQuery, NoVariables> = gql`
-  query ExploreBootstrap {
-    streamDescriptor {
-      datasetVersion
-      totalRecords
-      ssePath
-    }
-    facets {
-      severity {
-        value
-        count
-      }
-    }
-  }
-`;
-
-const VirtualizedFindingsGrid = lazy(() =>
-  import("../features/grid/VirtualizedFindingsGrid").then(({ VirtualizedFindingsGrid: Grid }) => ({
-    default: Grid,
-  })),
-);
+import { ExploreFilters } from "../features/explore/ExploreFilters";
+import {
+  FindingsEmptyState,
+  FindingsErrorState,
+  FindingsLoadingState,
+} from "../features/explore/ExploreResultsState";
+import { FindingsGrid } from "../features/explore/FindingsGrid";
+import { useFacets } from "../features/explore/use-facets";
+import { useFindingsConnection } from "../features/explore/use-findings-connection";
+import { useRefreshPendingUpdates } from "../features/live/use-dataset-events";
 
 export function ExplorePage() {
   const store = useDashboardStore();
   const [params, setParams] = useSearchParams();
-  const pageRows = useStore(store, (s) => s.pageRows);
-  const pageTotal = useStore(store, (s) => s.pageTotal);
-  const pageOffset = useStore(store, (s) => s.pageOffset);
-  const recordsReceived = useStore(store, (s) => s.recordsReceived);
-  const totalExpected = useStore(store, (s) => s.totalExpected);
-  const connection = useStore(store, (s) => s.connection);
-  const search = useStore(store, (s) => s.search);
-  const filters = useStore(store, (s) => s.filters);
-  const sort = useStore(store, (s) => s.sort);
-  const analysisMode = useStore(store, (s) => s.analysisMode);
+  const state = useMemo(() => parseExploreSearch(params), [params]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
+  const pendingUpdates = useStore(store, (value) => value.pendingUpdates);
+  const findings = useFindingsConnection(state);
+  const facets = useFacets(state);
+  const refreshPendingUpdates = useRefreshPendingUpdates();
+  const edges = findings.data?.findings.edges ?? [];
+  const nodes = edges.map((edge) => edge.node);
+  const totalCount = findings.data?.findings.totalCount ?? 0;
 
-  const urlState = useMemo(() => parseExploreSearch(params), [params]);
-  const workerRef = useRef<QueryWorkerHandle | null>(null);
-  const [suggestions, setSuggestions] = useState<string[]>([]);
-  const [rowCache, setRowCache] = useState<Map<number, PageRow>>(() => new Map());
-
-  const { data } = useSuspenseQuery(STREAM_AND_FACETS);
-
-  useEffect(() => {
-    store.dispatch({
-      type: "filters/set",
-      search: urlState.search,
-      filters: urlState.filters,
-      analysisMode: urlState.analysisMode,
-    });
-    store.dispatch({
-      type: "sort/set",
-      field: urlState.sort.field,
-      direction: urlState.sort.direction,
-    });
-    store.dispatch({ type: "page/set", offset: urlState.pageOffset });
-  }, [store, urlState]);
-
-  useEffect(() => {
-    const worker = createQueryWorker(store);
-    workerRef.current = worker;
-    return () => {
-      worker.terminate();
-      workerRef.current = null;
-    };
-  }, [store]);
-
-  useEffect(() => {
-    const descriptor = data.streamDescriptor;
-    const worker = workerRef.current;
-    if (!worker) return;
-    const sseUrl = `${descriptor.ssePath}?datasetVersion=${encodeURIComponent(descriptor.datasetVersion)}`;
-    worker.startStream(sseUrl, descriptor.totalRecords);
-  }, [data.streamDescriptor]);
-
-  const runQuery = useCallback(
-    async (offset: number, limit: number) => {
-      const worker = workerRef.current;
-      if (!worker) return;
-      store.dispatch({ type: "page/set", offset, limit });
-      try {
-        const result = await worker.query({
-          search,
-          filters,
-          sort,
-          offset,
-          limit,
-          analysisMode,
-        });
-        setRowCache((prev) => {
-          const next = new Map(prev);
-          for (let i = 0; i < result.rows.length; i++) {
-            const row = result.rows[i];
-            if (row) next.set(offset + i, row);
-          }
-          return next;
-        });
-      } catch (err: unknown) {
-        if (err instanceof Error && err.message === "superseded") return;
-      }
+  const setUrlState = useCallback(
+    (next: typeof state, replace = false) => {
+      setParams(exploreStateToSearch(next), { replace });
     },
-    [store, search, filters, sort, analysisMode],
+    [setParams],
   );
 
-  // Re-query as the worker index grows during SSE ingest.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: recordsReceived drives refresh during stream
-  useEffect(() => {
-    void runQuery(pageOffset, 50);
-  }, [runQuery, pageOffset, recordsReceived]);
-
-  const onVisibleRange = useCallback(
-    (offset: number, limit: number) => {
-      if (offset !== pageOffset) {
-        store.dispatch({ type: "page/set", offset, limit });
-      } else {
-        void runQuery(offset, limit);
-      }
-    },
-    [pageOffset, runQuery, store],
+  const handleFiltersChange = useCallback(
+    (filters: FindingFilters) => setUrlState({ ...state, filters, after: null }),
+    [setUrlState, state],
   );
+  const handleSortChange = useCallback(
+    (sort: FindingSort) => setUrlState({ ...state, sort, after: null }),
+    [setUrlState, state],
+  );
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    setRefreshError(null);
+    try {
+      await refreshPendingUpdates();
+    } catch {
+      setRefreshError("Updates could not be refreshed");
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [refreshPendingUpdates]);
 
-  const onSort = (field: string) => {
-    const direction: "asc" | "desc" =
-      sort.field === field && sort.direction === "desc" ? "asc" : "desc";
-    const next = { ...urlState, sort: { field, direction }, pageOffset: 0 };
-    store.dispatch({ type: "sort/set", field, direction });
-    setParams(exploreStateToSearch(next));
-    setRowCache(new Map());
-  };
-
-  const exportCsv = async () => {
-    const worker = workerRef.current;
-    if (!worker) return;
-    const blob = await worker.exportCsv({ search, filters, sort, analysisMode });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "findings.csv";
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+  const showRefresh = state.timeRange.preset !== "live" && pendingUpdates > 0;
 
   return (
-    <section aria-labelledby="explore-heading">
-      <h1 id="explore-heading" className="text-2xl font-semibold">
-        Explore
-      </h1>
-      <p className="text-muted-foreground mt-2 text-sm" aria-live="polite">
-        Stream: {connection}
-        {totalExpected > 0
-          ? ` — ${recordsReceived.toLocaleString()} / ${totalExpected.toLocaleString()} indexed`
-          : ` — ${recordsReceived.toLocaleString()} rows indexed`}
-        . Result set: {pageTotal.toLocaleString()}.
-      </p>
+    <section aria-labelledby="explore-heading" className="space-y-5">
+      <header>
+        <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+          ClickHouse-backed exploration
+        </p>
+        <h1 id="explore-heading" className="mt-1 text-2xl font-semibold">
+          Vulnerability findings
+        </h1>
+        <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
+          Search and refine the result set without loading the full dataset into this browser.
+        </p>
+      </header>
 
-      <div className="mt-4 flex flex-wrap items-end gap-3">
-        <label className="block text-sm" htmlFor="explore-search">
-          Search
-          <Input
-            id="explore-search"
-            className="mt-1 w-72"
-            value={search}
-            list="search-suggestions"
-            onChange={(event) => {
-              const value = event.target.value;
-              const next = { ...urlState, search: value, pageOffset: 0 };
-              store.dispatch({ type: "filters/set", search: value });
-              setParams(exploreStateToSearch(next));
-              setRowCache(new Map());
-              void workerRef.current
-                ?.suggest(value)
-                .then(setSuggestions)
-                .catch(() => undefined);
-            }}
-          />
-          <datalist id="search-suggestions">
-            {suggestions.map((s) => (
-              <option key={s} value={s} />
-            ))}
-          </datalist>
-        </label>
-
-        <label className="block text-sm" htmlFor="explore-severity">
-          Severity
-          <select
-            id="explore-severity"
-            className="mt-1 block rounded border px-2 py-1"
-            value={filters.severity?.[0] ?? ""}
-            onChange={(event) => {
-              const severity = event.target.value;
-              const nextFilters: Record<string, string[]> = severity
-                ? { severity: [severity] }
-                : {};
-              const next = { ...urlState, filters: nextFilters, pageOffset: 0 };
-              store.dispatch({ type: "filters/set", filters: nextFilters });
-              setParams(exploreStateToSearch(next));
-              setRowCache(new Map());
-            }}
+      {showRefresh && (
+        <div className="flex flex-wrap items-center justify-end gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => void handleRefresh()}
+            disabled={isRefreshing}
           >
-            <option value="">All</option>
-            {data.facets.severity.map((f) => (
-              <option key={f.value} value={f.value}>
-                {f.value} ({f.count})
-              </option>
-            ))}
-          </select>
-        </label>
+            {isRefreshing && (
+              <span
+                className="size-2 animate-pulse rounded-full bg-foreground"
+                aria-hidden="true"
+              />
+            )}
+            {pendingUpdates.toLocaleString()} updates — Refresh
+          </Button>
+        </div>
+      )}
+      {refreshError && (
+        <p className="text-sm text-destructive" role="status">
+          {refreshError}
+        </p>
+      )}
 
-        <label className="block text-sm" htmlFor="explore-mode">
-          Mode
-          <select
-            id="explore-mode"
-            className="mt-1 block rounded border px-2 py-1"
-            value={analysisMode}
-            onChange={(event) => {
-              const mode = event.target.value as typeof analysisMode;
-              const next = { ...urlState, analysisMode: mode, pageOffset: 0 };
-              store.dispatch({ type: "filters/set", analysisMode: mode });
-              setParams(exploreStateToSearch(next));
-              setRowCache(new Map());
-            }}
-          >
-            <option value="all">All</option>
-            <option value="analysis">Analysis</option>
-            <option value="aiAnalysis">AI Analysis</option>
-          </select>
-        </label>
-
-        <Button type="button" variant="outline" onClick={() => void exportCsv()}>
-          Export CSV
-        </Button>
+      <div className="rounded-lg border bg-card p-3">
+        <ExploreFilters
+          filters={state.filters}
+          facets={facets.data?.facets}
+          isLoading={facets.loading}
+          onFiltersChange={handleFiltersChange}
+        />
+        {facets.error && (
+          <p className="mt-2 text-xs text-destructive" role="status">
+            Filter counts are temporarily unavailable.
+          </p>
+        )}
       </div>
 
-      <div className="mt-4">
-        <Suspense
-          fallback={
-            <div
-              className="flex h-[480px] items-center justify-center border text-sm text-muted-foreground"
-              role="status"
-              aria-live="polite"
-              aria-busy="true"
-            >
-              Loading findings grid…
-            </div>
-          }
-        >
-          <VirtualizedFindingsGrid
-            rowByIndex={
-              rowCache.size > 0 ? rowCache : new Map(pageRows.map((r, i) => [pageOffset + i, r]))
-            }
-            total={pageTotal}
-            onVisibleRange={onVisibleRange}
-            onSort={onSort}
-            sortField={sort.field}
-            sortDirection={sort.direction}
-          />
-        </Suspense>
-      </div>
+      {findings.loading && edges.length === 0 && <FindingsLoadingState />}
+      {findings.error && edges.length === 0 && (
+        <FindingsErrorState onRetry={() => void findings.refetch()} />
+      )}
+      {!findings.loading && !findings.error && edges.length === 0 && <FindingsEmptyState />}
+      {edges.length > 0 && (
+        <FindingsGrid
+          findings={nodes}
+          loadedCount={findings.loadedCount}
+          totalCount={totalCount}
+          sort={state.sort}
+          hasNextPage={findings.hasNextPage}
+          isFetchingMore={findings.isFetchingMore}
+          loadMoreError={findings.loadMoreError}
+          onSortChange={handleSortChange}
+          onLoadMore={findings.loadMore}
+        />
+      )}
     </section>
   );
 }

@@ -9,5 +9,5 @@
   },
   "include": ["src/**/*.ts"],
   "exclude": ["dist", "node_modules"],
-  "references": [{ "path": "../../packages/proto" }]
+  "references": [{ "path": "../../packages/shared" }]
 }

@@ -20,18 +20,26 @@ alwaysApply: false
 ## State Ownership
 
 - Local interaction state stays local.
-- TanStack Query owns remote manifests, summaries, chunks, and detail shards.
+- Apollo Client owns bounded GraphQL pages, facets, aggregates, dataset
+  metadata, export status, and detail.
 - URL parameters own shareable filter and sort state.
 - React Context plus versioned local storage owns low-frequency preferences.
   Validate stored values and recover safely to defaults.
-- Query results stay in the browser Web Worker protocol; do not duplicate the
-  complete compact index in React state or introduce Redux.
+- Query results stay in the Apollo cache as bounded cursor pages, facets, and
+  aggregates served by ClickHouse; do not accumulate the full corpus in React
+  state or Zustand, and do not introduce Redux. Zustand holds live connection
+  state (`connection`, `lastEventId`, `pendingUpdates`, and a bounded recent
+  Finding-event list) only.
 
 ## Data and Rendering
 
 - Do not fetch GraphQL control-plane data in ad hoc effects. Use Apollo Client
   with explicit loading/error/empty states.
-- Keep filtering, sorting, suggestions, pagination, and export out of render.
+- Keep filtering, sorting, suggestions, pagination, and export out of render:
+  express them as GraphQL arguments (`filters`, `sort`, `search`, `timeRange`,
+  `analysisMode`, `after`, `first`) or an export mutation and let ClickHouse
+  do the work. Apply SSE `DatasetEvent`s through the Apollo cache or a bounded
+  refetch, never by re-sorting loaded rows in a component.
 - Memoize only when identity is contractually important or profiling shows a
   real cost.
 - Compose shadcn components semantically. Use TanStack Table + Virtual and

@@ -1,5 +1,12 @@
 # T08 Worker decoder and columnar index
 
+> **Superseded** by [ADR-0001](../adr/0001-clickhouse-authoritative-query-engine.md).
+> The browser no longer opens SSE in a worker, decodes protobuf, or builds a
+> compact index. Reconnect without duplication is carried by
+> [T22](T22-gateway-sse-change-relay.md) and [T25](T25-dashboard-data-layer.md);
+> the spot-check against `finding(id)` is removed as a product decision recorded
+> in the ADR. Content below is kept as history.
+
 ## Outcome
 
 A dedicated browser Web Worker owns the SSE connection, decodes base64 protobuf

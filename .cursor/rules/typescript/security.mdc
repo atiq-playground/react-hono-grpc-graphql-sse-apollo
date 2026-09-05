@@ -18,8 +18,9 @@ const clickhousePassword = "secret-value"
 
 Never place a secret in `VITE_*`; Vite exposes those values to the browser.
 Parse `unknown` inputs with `zod/mini` before object spread, property access,
-or protocol dispatch. Validate stream cursors and worker messages at the
-boundary rather than trusting browser-supplied identifiers.
+or protocol dispatch. Validate GraphQL pagination cursors, Redis Stream ids,
+Dataset Events, and export ids at the boundary rather than trusting
+browser-supplied identifiers.
 
 Use the canonical `security-reviewer` agent for comprehensive audits when the
 change warrants one.

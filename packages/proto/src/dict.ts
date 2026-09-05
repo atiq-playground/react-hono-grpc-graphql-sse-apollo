@@ -1,6 +1,6 @@
 import { create } from "@bufbuild/protobuf";
-import type { DictColumn } from "./gen/findings/v1/findings_pb.js";
-import { DictColumnSchema } from "./gen/findings/v1/findings_pb.js";
+import type { DictColumn } from "./gen/findings/v2/findings_pb.js";
+import { DictColumnSchema } from "./gen/findings/v2/findings_pb.js";
 
 export type DictEncodeState = {
   dictionary: string[];

@@ -1,48 +1,120 @@
-# GraphQL control plane (T07). No subscriptions — firehose is SSE (T06).
+# GraphQL control plane (ADR-0001/T21). Live changes use SSE, not subscriptions.
 
-type SeverityCount {
-  severity: String!
-  count: Int!
+enum AnalysisMode {
+  ALL
+  ANALYSIS
+  AI_ANALYSIS
 }
 
-type Summary {
-  total: Int!
-  bySeverity: [SeverityCount!]!
-  analysisCount: Int!
-  aiAnalysisCount: Int!
+enum SortDirection {
+  ASC
+  DESC
 }
 
-type FacetValue {
+enum FindingSortField {
+  CVSS
+  SEVERITY
+  CVE
+  PUBLISHED_AT
+  FIXED_AT
+  PACKAGE_NAME
+  REPO
+  UPDATED_AT
+}
+
+enum TimeRangePreset {
+  LIVE
+  LAST_24_HOURS
+  LAST_7_DAYS
+  LAST_30_DAYS
+  LAST_1_YEAR
+  LAST_5_YEARS
+  CUSTOM
+}
+
+enum ExportStatus {
+  PENDING
+  RUNNING
+  READY
+  FAILED
+}
+
+enum SearchSuggestionField {
+  CVE
+  PACKAGE_NAME
+  IMAGE
+  REPO
+}
+
+type SearchSuggestion {
   value: String!
-  count: Int!
+  field: SearchSuggestionField!
 }
 
-type Facets {
-  severity: [FacetValue!]!
-  packageType: [FacetValue!]!
-  status: [FacetValue!]!
-  advisoryType: [FacetValue!]!
-  group: [FacetValue!]!
-  repo: [FacetValue!]!
-  kaiStatus: [FacetValue!]!
+input FindingFiltersInput {
+  severity: [String!]
+  status: [String!]
+  group: [String!]
+  repo: [String!]
+  image: [String!]
+  packageType: [String!]
+  advisoryType: [String!]
+  kaiStatus: [String!]
+  riskFactors: [String!]
 }
 
-type Finding {
+input FindingSortInput {
+  field: FindingSortField!
+  direction: SortDirection!
+}
+
+input TimeRangeInput {
+  preset: TimeRangePreset!
+  from: String
+  to: String
+}
+
+input ExportInput {
+  filters: FindingFiltersInput
+  sort: FindingSortInput
+  search: String
+  timeRange: TimeRangeInput
+  analysisMode: AnalysisMode = ALL
+}
+
+"""Narrow row returned by the bounded Explore connection."""
+type FindingRow {
+  id: ID!
+  cve: String!
+  severity: String!
+  cvss: Float!
+  status: String!
+  packageName: String!
+  packageVersion: String!
+  group: String!
+  repo: String!
+  image: String!
+  kaiStatus: String
+  publishedAt: String
+}
+
+"""Source-preserving detail selected explicitly by findingId."""
+type FindingDetail {
   id: ID!
   group: String!
   repo: String!
   image: String!
   cve: String!
   severity: String!
+  cvss: Float!
+  status: String!
   packageName: String!
   packageVersion: String!
   packageType: String!
   path: String!
-  status: String!
   advisoryType: String!
   buildType: String!
   type: String!
-  cvss: Float!
   description: String!
   cause: String!
   exploit: String!
@@ -55,20 +127,123 @@ type Finding {
   kaiStatus: String
   riskFactors: [String!]!
   applicableRules: [String!]!
+  publishedAt: String
+  fixedAt: String
+  updatedAt: String!
 }
 
-type StreamDescriptor {
-  datasetVersion: String!
-  totalRecords: Int!
-  """Block sequence to pass as after_sequence / Last-Event-ID bootstrap (0 = start)."""
+type FindingEdge {
   cursor: String!
-  redisStream: String!
-  ssePath: String!
+  node: FindingRow!
+}
+
+type PageInfo {
+  endCursor: String
+  hasNextPage: Boolean!
+}
+
+type FindingConnection {
+  edges: [FindingEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type FacetValue {
+  value: String!
+  count: Int!
+}
+
+type Facets {
+  severity: [FacetValue!]!
+  status: [FacetValue!]!
+  group: [FacetValue!]!
+  repo: [FacetValue!]!
+  image: [FacetValue!]!
+  packageType: [FacetValue!]!
+  advisoryType: [FacetValue!]!
+  kaiStatus: [FacetValue!]!
+  riskFactors: [FacetValue!]!
+}
+
+type OverviewTotals {
+  total: Int!
+  uniqueCves: Int!
+  analysisCount: Int!
+  aiAnalysisCount: Int!
+  averageCvss: Float!
+}
+
+type OverviewBucket {
+  key: String!
+  label: String!
+  count: Int!
+}
+
+type CvesFoundVsFixed {
+  found: Int!
+  fixed: Int!
+}
+
+type PublishedTrendBucket {
+  month: String!
+  count: Int!
+}
+
+type VulnerabilityOverview {
+  totals: OverviewTotals!
+  severityDistribution: [OverviewBucket!]!
+  statusDistribution: [OverviewBucket!]!
+  byRepository: [OverviewBucket!]!
+  byImage: [OverviewBucket!]!
+  topPackages: [OverviewBucket!]!
+  riskFactorDistribution: [OverviewBucket!]!
+  ageBuckets: [OverviewBucket!]!
+  fixAvailability: [OverviewBucket!]!
+  cvesFoundVsFixed: CvesFoundVsFixed!
+  timeToFixBuckets: [OverviewBucket!]!
+  publishedTrend: [PublishedTrendBucket!]!
+}
+
+type DatasetInfo {
+  version: String!
+  totalCount: Int!
+  lastEventId: String
+}
+
+type ExportJob {
+  id: ID!
+  status: ExportStatus!
+  rowCount: Int
+  downloadUrl: String
+  errorMessage: String
+  expiresAt: String!
 }
 
 type Query {
-  summary: Summary!
-  facets: Facets!
-  finding(id: ID!): Finding
-  streamDescriptor: StreamDescriptor!
+  findings(
+    filters: FindingFiltersInput
+    sort: FindingSortInput
+    search: String
+    timeRange: TimeRangeInput
+    analysisMode: AnalysisMode = ALL
+    after: String
+    first: Int = 50
+  ): FindingConnection!
+  finding(id: ID!): FindingDetail
+  facets(
+    filters: FindingFiltersInput
+    timeRange: TimeRangeInput
+    analysisMode: AnalysisMode = ALL
+  ): Facets!
+  searchSuggestions(prefix: String!, limit: Int = 10): [SearchSuggestion!]!
+  vulnerabilityOverview(
+    filters: FindingFiltersInput
+    timeRange: TimeRangeInput
+  ): VulnerabilityOverview!
+  datasetInfo: DatasetInfo!
+  exportJob(id: ID!): ExportJob
+}
+
+type Mutation {
+  createExport(input: ExportInput!): ExportJob!
 }

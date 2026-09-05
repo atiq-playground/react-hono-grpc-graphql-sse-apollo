@@ -33,7 +33,7 @@ Final QA is risk-based and follows PRD implementation.
 
 - Select browser coverage from risk; at minimum verify the supported Chromium
   journey before expanding to Firefox and WebKit
-- Test grid, charts, Worker integration, scrolling, and fallback behavior
+- Test grid, charts, SSE integration, scrolling, and fallback behavior
 
 ### 5. Responsive
 

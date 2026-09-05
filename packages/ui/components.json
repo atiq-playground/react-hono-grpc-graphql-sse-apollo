@@ -17,5 +17,8 @@
     "lib": "@repo/ui/lib",
     "hooks": "@repo/ui/hooks"
   },
-  "iconLibrary": "lucide"
+  "iconLibrary": "lucide",
+  "registries": {
+    "@loading-ui": "https://loading-ui.com/r/{name}.json"
+  }
 }

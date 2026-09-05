@@ -1,81 +1,77 @@
 /**
- * SSE data plane: relay Redis Stream finding blocks as base64 frames (T06).
- *
- * Approach: one Redis connection per SSE client reading the stream with XREAD.
- * History replay uses Last-Event-ID (block sequence). Live tail uses BLOCK.
- * This is simpler than a shared fan-out for local scale; note for later.
- *
- * Envelope (T14): optional first `stream-meta` event carries sentry-trace/baggage
- * so the browser can continue the distributed trace (SSE frames have no headers).
+ * SSE data plane: relay validated DatasetEvents from one configured Redis
+ * Stream. Each client owns a blocking Redis connection; this is intentionally
+ * simple for local scale and can be replaced by a shared fan-out if measured
+ * connection pressure warrants it.
  */
+import { encodeDatasetEvent } from "@repo/shared";
 import type { Context } from "hono";
 import { streamSSE } from "hono/streaming";
 import Redis from "ioredis";
 import { z } from "zod/mini";
-import { REDIS_STREAM, REDIS_URL } from "./env.js";
-import { ensureProducerStream } from "./producer-client.js";
 
-const XREAD_COUNT = 32;
+import { DATASET_VERSION, REDIS_URL } from "./env.js";
+import {
+  coalesceStreamBatch,
+  collectStreamWindow,
+  createResyncRequiredEvent,
+} from "./sse-coalescing.js";
+import { parseLastEventId, readStreamEntries, resolveStartPosition } from "./sse-redis-stream.js";
+
 const XREAD_BLOCK_MS = 5_000;
 const KEEPALIVE_MS = 15_000;
 
+// [schemas]
+
 const StreamQuery = z.object({
-  datasetVersion: z.optional(z.string()),
+  datasetVersion: z.optional(z.literal(DATASET_VERSION)),
 });
 
-type StreamEntry = [id: string, fields: string[]];
-type XReadResult = Array<[stream: string, entries: StreamEntry[]]> | null;
-
-function fieldsToMap(fields: string[]): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (let i = 0; i < fields.length; i += 2) {
-    const key = fields[i];
-    const value = fields[i + 1];
-    if (key !== undefined && value !== undefined) out[key] = value;
+function parseRequest(c: Context): { lastEventId?: string } | Response {
+  const searchParams = new URL(c.req.url).searchParams;
+  const keys = [...searchParams.keys()];
+  if (
+    keys.some((key) => key !== "datasetVersion") ||
+    searchParams.getAll("datasetVersion").length > 1
+  ) {
+    return c.json({ error: "Invalid query parameters; only one datasetVersion is allowed" }, 400);
   }
-  return out;
-}
 
-function parseLastEventId(header: string | undefined): bigint {
-  if (header === undefined || header === "") return 0n;
-  if (!/^\d+$/.test(header)) {
-    throw new Error("Malformed Last-Event-ID; expected an unsigned integer sequence");
+  const queryParse = StreamQuery.safeParse({
+    datasetVersion: searchParams.get("datasetVersion") ?? undefined,
+  });
+  if (!queryParse.success) {
+    return c.json({ error: `Invalid datasetVersion; expected ${DATASET_VERSION}` }, 400);
   }
-  return BigInt(header);
-}
 
-function streamKeyFor(datasetVersion: string | undefined): string {
-  if (datasetVersion === undefined) return REDIS_STREAM;
-  return `findings:${datasetVersion}`;
+  try {
+    const lastEventId = parseLastEventId(c.req.header("Last-Event-ID"));
+    return lastEventId === undefined ? {} : { lastEventId };
+  } catch {
+    return c.json(
+      { error: "Invalid Last-Event-ID; expected a Redis Stream id such as 1720000000000-0" },
+      400,
+    );
+  }
 }
 
 export async function sseRoute(c: Context): Promise<Response> {
-  const queryParse = StreamQuery.safeParse({
-    datasetVersion: c.req.query("datasetVersion"),
-  });
-  if (!queryParse.success) {
-    return c.json({ error: "Invalid query parameters" }, 400);
-  }
+  const request = parseRequest(c);
+  if (request instanceof Response) return request;
 
-  let afterSeq: bigint;
-  try {
-    afterSeq = parseLastEventId(c.req.header("Last-Event-ID"));
-  } catch {
-    return c.json({ error: "Invalid Last-Event-ID" }, 400);
-  }
-
-  const streamKey = streamKeyFor(queryParse.data.datasetVersion);
-  const sentryTrace = c.req.header("sentry-trace");
-  const baggage = c.req.header("baggage");
-
-  // Kick producer fill if Redis is empty (does not block first frames once filled).
-  void ensureProducerStream(streamKey, sentryTrace, baggage);
+  // Hono's CompressionStream middleware offers no per-frame flush control.
+  // Keep SSE identity-encoded so events and keepalives cannot be buffered.
+  c.header("Content-Encoding", "identity");
+  c.header("Cache-Control", "no-cache, no-transform");
+  c.header("X-Accel-Buffering", "no");
 
   return streamSSE(c, async (stream) => {
     const redis = new Redis(REDIS_URL, { maxRetriesPerRequest: null });
-    let cursor = "0-0";
-    let lastEmitted = afterSeq;
     let alive = true;
+    let nextKeepaliveAt = Date.now() + KEEPALIVE_MS;
+    // Flush immediately so proxies cannot hold the response until Redis work
+    // or the first retained event; EventSource stays CONNECTING until then.
+    await stream.write(": connected\n\n");
 
     const onAbort = () => {
       alive = false;
@@ -83,52 +79,53 @@ export async function sseRoute(c: Context): Promise<Response> {
     };
     c.req.raw.signal.addEventListener("abort", onAbort);
 
-    const keepalive = setInterval(() => {
-      if (alive) void stream.writeSSE({ event: "keepalive", data: "" });
-    }, KEEPALIVE_MS);
-
     try {
-      await stream.writeSSE({
-        event: "stream-meta",
-        data: JSON.stringify({
-          sentryTrace: sentryTrace ?? null,
-          baggage: baggage ?? null,
-        }),
-      });
+      const start = await resolveStartPosition(redis, request.lastEventId);
+      let cursor = start.cursor;
+      if (start.resyncId !== undefined) {
+        const event = createResyncRequiredEvent();
+        await stream.writeSSE({
+          id: start.resyncId,
+          event: event.type,
+          data: encodeDatasetEvent(event),
+        });
+      } else if (request.lastEventId !== undefined && cursor === "$") {
+        const event = createResyncRequiredEvent();
+        await stream.writeSSE({
+          event: event.type,
+          data: encodeDatasetEvent(event),
+        });
+      }
 
-      // Replay existing entries with seq > afterSeq, then block for new ones.
       while (alive) {
-        const result = (await redis.xread(
-          "COUNT",
-          XREAD_COUNT,
-          "BLOCK",
-          XREAD_BLOCK_MS,
-          "STREAMS",
-          streamKey,
+        const untilKeepalive = Math.max(1, nextKeepaliveAt - Date.now());
+        const entries = await readStreamEntries(
+          redis,
           cursor,
-        )) as XReadResult;
+          Math.min(XREAD_BLOCK_MS, untilKeepalive),
+        );
+        if (!alive) break;
 
-        if (!result) continue;
-
-        for (const [, entries] of result) {
-          for (const [id, fields] of entries) {
-            cursor = id;
-            const map = fieldsToMap(fields);
-            const seq = BigInt(map.seq ?? "0");
-            const payload = map.payload;
-            if (!payload) continue;
-            if (seq <= lastEmitted) continue;
-            lastEmitted = seq;
+        if (entries.length > 0) {
+          const batch = await collectStreamWindow(redis, entries);
+          cursor = batch.at(-1)?.id ?? cursor;
+          for (const { id, event } of coalesceStreamBatch(batch)) {
             await stream.writeSSE({
-              id: seq.toString(),
-              event: "finding-block",
-              data: payload,
+              id,
+              event: event.type,
+              data: encodeDatasetEvent(event),
             });
           }
         }
+
+        if (Date.now() >= nextKeepaliveAt) {
+          await stream.write(": keepalive\n\n");
+          nextKeepaliveAt = Date.now() + KEEPALIVE_MS;
+        }
       }
+    } catch (error: unknown) {
+      if (alive) throw error;
     } finally {
-      clearInterval(keepalive);
       c.req.raw.signal.removeEventListener("abort", onAbort);
       redis.disconnect();
     }

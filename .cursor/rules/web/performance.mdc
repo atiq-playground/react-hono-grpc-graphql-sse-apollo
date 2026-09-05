@@ -66,7 +66,8 @@ alwaysApply: false
 ## Performance Checklist
 
 - [ ] React remains responsive while query and export work runs
-- [ ] Artifact requests are versioned, bounded, cacheable, and free of waterfalls
+- [ ] GraphQL requests and Apollo partitions are bounded and free of waterfalls
+- [ ] Export polling and downloads do not duplicate work
 - [ ] Heavy routes and features load through dynamic imports with loading and
       error fallbacks
 - [ ] Production chunks meet evidence-based size budgets and are not duplicated

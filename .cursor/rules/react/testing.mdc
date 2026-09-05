@@ -10,7 +10,7 @@ alwaysApply: false
 
 - **Jest + React Testing Library** for selected component and integration seams.
 - **Playwright** for critical browser flows, responsive behavior, layout,
-  keyboard operation, and browser/Worker integration.
+  keyboard operation, and browser/SSE integration.
 
 Build these suites during final risk-based QA. Add a focused test earlier only
 when it materially reduces risk.
@@ -158,10 +158,10 @@ For those, use the project's Playwright end-to-end suite.
 
 ## Risk Priorities
 
-Prioritize URL-state round trips, invalid preference recovery, TanStack Query
-loading/error behavior, Web Worker protocol handling, accessible grid
-interaction, and the critical explore-to-detail journey. Do not enforce an
-arbitrary coverage percentage.
+Prioritize URL-state round trips, invalid preference recovery, Apollo bounded
+cache behavior, Dataset Event handling, accessible grid interaction, and the
+critical explore-to-detail journey. Do not enforce an arbitrary coverage
+percentage.
 
 ## Anti-Patterns
 

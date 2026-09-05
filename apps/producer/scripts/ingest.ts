@@ -8,10 +8,14 @@
 
 import { createReadStream } from "node:fs";
 import { basename } from "node:path";
-import { type ClickHouseClient, createClient } from "@clickhouse/client";
+import { createClient } from "@connectrpc/connect";
+import { createGrpcTransport } from "@connectrpc/connect-node";
+import { type FindingBlock, IngestService } from "@repo/proto";
 import { chain } from "stream-chain";
 import { parser } from "stream-json";
 import Assembler from "stream-json/Assembler.js";
+import { rowsToFindingBlock } from "../src/block.js";
+import { DATASET_VERSION, INGEST_SOURCE, PRODUCER_BLOCK_SIZE, PRODUCER_URL } from "../src/env.js";
 import { type FindingRow, normalizeSourceFinding } from "../src/finding-row.js";
 
 type JsonAssembler = {
@@ -22,16 +26,16 @@ type JsonAssembler = {
 
 const AssemblerCtor = Assembler as unknown as new () => JsonAssembler;
 
-const RAW_PATH = process.env.INGEST_SOURCE ?? "apps/producer/data/raw/ui_demo.json";
-const BATCH_SIZE = Number(process.env.INGEST_BATCH_SIZE ?? 2_000);
+/** Source vulnerability records streamed from the corpus. */
 const EXPECTED_ROWS = 236_656;
+/**
+ * Distinct findings after ReplacingMergeTree dedup on the identity key
+ * (group, repo, image, cve, packageName, packageVersion, path): three source
+ * records are exact identity duplicates that differ only in status/fixDate text.
+ */
+const EXPECTED_FINDINGS = 236_653;
 
 type Token = { name: string; value?: unknown };
-
-function env(name: string, fallback: string): string {
-  const value = process.env[name];
-  return value === undefined || value === "" ? fallback : value;
-}
 
 function asString(value: unknown): string {
   if (value === null || value === undefined) return "";
@@ -207,23 +211,12 @@ async function* iterateFindings(filePath: string): AsyncGenerator<FindingRow> {
   }
 }
 
-async function insertBatch(client: ClickHouseClient, rows: FindingRow[]): Promise<void> {
-  if (rows.length === 0) return;
-  await client.insert({
-    table: "findings",
-    values: rows,
-    format: "JSONEachRow",
-  });
-}
-
 async function main(): Promise<void> {
   const force = process.argv.includes("--force");
-  const client = createClient({
-    url: env("CLICKHOUSE_URL", "http://127.0.0.1:8123"),
-    username: env("CLICKHOUSE_USER", "default"),
-    password: env("CLICKHOUSE_PASSWORD", ""),
-    database: env("CLICKHOUSE_DB", "default"),
+  const transport = createGrpcTransport({
+    baseUrl: PRODUCER_URL,
   });
+  const client = createClient(IngestService, transport);
 
   const started = Date.now();
   let peakRss = process.memoryUsage().rss;
@@ -232,92 +225,58 @@ async function main(): Promise<void> {
   }, 250);
 
   try {
-    const countResult = await client.query({
-      query: "SELECT count() AS c FROM findings",
-      format: "JSONEachRow",
-    });
-    const countRows = (await countResult.json()) as Array<{ c: string }>;
-    const existing = Number(countRows[0]?.c ?? 0);
+    console.info(
+      `Ingesting ${basename(INGEST_SOURCE)} through ${PRODUCER_URL} in blocks of ${PRODUCER_BLOCK_SIZE}...`,
+    );
+    let streamedRows = 0;
+    let streamedBlocks = 0n;
 
-    if (existing > 0 && !force) {
-      throw new Error(`findings already has ${existing} rows; refuse to ingest without --force`);
-    }
-    if (existing > 0 && force) {
-      console.log(`Truncating findings (${existing} rows) due to --force`);
-      await client.command({ query: "TRUNCATE TABLE findings" });
-    }
-
-    console.log(`Ingesting ${basename(RAW_PATH)} in batches of ${BATCH_SIZE}...`);
-    let batch: FindingRow[] = [];
-    let total = 0;
-
-    for await (const row of iterateFindings(RAW_PATH)) {
-      batch.push(row);
-      if (batch.length >= BATCH_SIZE) {
-        await insertBatch(client, batch);
-        total += batch.length;
-        batch = [];
-        if (total % 20_000 === 0) {
-          console.log(`  progress: ${total} rows`);
+    async function* blocks(): AsyncGenerator<FindingBlock> {
+      let batch: FindingRow[] = [];
+      for await (const row of iterateFindings(INGEST_SOURCE)) {
+        batch.push(row);
+        if (batch.length >= PRODUCER_BLOCK_SIZE) {
+          streamedBlocks += 1n;
+          streamedRows += batch.length;
+          yield rowsToFindingBlock(batch, streamedBlocks, DATASET_VERSION);
+          batch = [];
+          if (streamedRows % 20_000 === 0) {
+            console.info(`  progress: ${streamedRows} source rows`);
+          }
         }
       }
+      if (batch.length > 0) {
+        streamedBlocks += 1n;
+        streamedRows += batch.length;
+        yield rowsToFindingBlock(batch, streamedBlocks, DATASET_VERSION);
+      }
     }
-    await insertBatch(client, batch);
-    total += batch.length;
 
-    const verify = await client.query({
-      query: `
-        SELECT
-          count() AS total,
-          uniqExact(\`group\`) AS groups,
-          uniqExact(image) AS images,
-          countIf(kaiStatus IS NOT NULL) AS withKai
-        FROM findings
-      `,
-      format: "JSONEachRow",
+    const response = await client.ingestBlocks(blocks(), {
+      headers: { "x-ingest-replace": force ? "true" : "false" },
     });
-    const stats = (await verify.json()) as Array<{
-      total: string;
-      groups: string;
-      images: string;
-      withKai: string;
-    }>;
-    const s = stats[0];
-    if (!s) throw new Error("verification query returned no rows");
-
-    const totalN = Number(s.total);
-    const groupsN = Number(s.groups);
-    const imagesN = Number(s.images);
-    const kaiN = Number(s.withKai);
-
-    console.log(
-      `Done: ${totalN} rows in ${((Date.now() - started) / 1000).toFixed(1)}s; peak RSS ${(peakRss / 1024 / 1024).toFixed(1)} MiB`,
+    if (streamedRows !== EXPECTED_ROWS || Number(response.sourceRowsWritten) !== EXPECTED_ROWS) {
+      throw new Error(
+        `expected ${EXPECTED_ROWS} source rows, streamed ${streamedRows}, producer wrote ${response.sourceRowsWritten}`,
+      );
+    }
+    if (response.blocksWritten !== streamedBlocks) {
+      throw new Error(
+        `producer wrote ${response.blocksWritten} blocks, client streamed ${streamedBlocks}`,
+      );
+    }
+    if (Number(response.currentFindings) !== EXPECTED_FINDINGS) {
+      throw new Error(
+        `expected ${EXPECTED_FINDINGS} findings under FINAL, got ${response.currentFindings}`,
+      );
+    }
+    console.info(
+      `Done: ${streamedRows} source rows -> ${response.currentFindings} FINAL findings in ${((Date.now() - started) / 1000).toFixed(1)}s; peak RSS ${(peakRss / 1024 / 1024).toFixed(1)} MiB`,
     );
-    console.log(`Verify: groups=${groupsN} images=${imagesN} kaiStatus_present=${kaiN}`);
-
-    // Re-inspected against the streamed source census (apps/producer/scripts/census.ts):
-    // 45 groups / 1030 images in source, but one group and five images have empty
-    // vulnerability arrays and therefore produce no findings rows.
-    const expectedGroupsInFindings = 44;
-    const expectedImagesInFindings = 1_025;
-
-    if (totalN !== EXPECTED_ROWS) {
-      throw new Error(`expected ${EXPECTED_ROWS} rows, got ${totalN}`);
-    }
-    if (groupsN !== expectedGroupsInFindings) {
-      throw new Error(`expected ${expectedGroupsInFindings} groups in findings, got ${groupsN}`);
-    }
-    if (imagesN !== expectedImagesInFindings) {
-      throw new Error(`expected ${expectedImagesInFindings} images in findings, got ${imagesN}`);
-    }
-    if (kaiN !== 29_005) {
-      throw new Error(`expected 29005 kaiStatus values, got ${kaiN}`);
-    }
-
-    console.log("ingest accepted");
+    console.info(`Terminal DatasetEvent: ${response.terminalEventId}`);
+    console.info("ingest accepted");
   } finally {
     clearInterval(trackMem);
-    await client.close();
   }
 }
 

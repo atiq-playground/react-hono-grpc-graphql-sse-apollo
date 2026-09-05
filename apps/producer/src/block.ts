@@ -1,16 +1,17 @@
-/**
- * ClickHouse row -> columnar FindingBlock helpers (T05).
- */
+/** Server-side row ↔ columnar FindingBlock ingestion helpers. */
 import { create } from "@bufbuild/protobuf";
 import {
   appendOffsetRow,
   createDictEncodeState,
   createOffsetEncodeState,
+  decodeDictColumn,
+  decodeOffsetStringArrays,
   type FindingBlock,
   FindingBlockSchema,
   internDictValue,
 } from "@repo/proto";
 import type { PackedFindingColumns } from "./block.types.js";
+import { PRODUCER_BLOCK_SIZE, PRODUCER_MAX_BLOCK_ROWS } from "./env.js";
 import {
   CONTEXT_STRING_FIELDS,
   DICTIONARY_STRING_FIELDS,
@@ -18,11 +19,12 @@ import {
   type FindingRow,
   NULLABLE_STRING_FIELDS,
   NUMBER_FIELDS,
+  normalizeFindingRow,
   PLAIN_STRING_FIELDS,
   STRING_ARRAY_FIELDS,
 } from "./finding-row.js";
 
-export const BLOCK_SIZE = Number(process.env.PRODUCER_BLOCK_SIZE ?? 2_048);
+export const BLOCK_SIZE = PRODUCER_BLOCK_SIZE;
 
 const EMPTY_PACKED_COLUMNS = Object.fromEntries(
   Object.values(FINDING_ROW_FIELD_GROUPS)
@@ -108,5 +110,65 @@ export function rowsToFindingBlock(
     datasetVersion,
     rowCount: rows.length,
     ...packFindingColumns(rows),
+  });
+}
+
+function assertDenseLength(field: string, values: readonly unknown[], rowCount: number): void {
+  if (values.length !== rowCount) {
+    throw new Error(`${field} length ${values.length} does not match rowCount ${rowCount}`);
+  }
+}
+
+export function findingBlockToRows(block: FindingBlock): FindingRow[] {
+  const rowCount = block.rowCount;
+  if (rowCount === 0 || rowCount > PRODUCER_MAX_BLOCK_ROWS) {
+    throw new Error(`FindingBlock rowCount ${rowCount} is outside 1..${PRODUCER_MAX_BLOCK_ROWS}`);
+  }
+
+  const columns: Record<string, readonly unknown[]> = {};
+  for (const field of [...CONTEXT_STRING_FIELDS, ...PLAIN_STRING_FIELDS, ...NUMBER_FIELDS]) {
+    const values = block[field];
+    assertDenseLength(field, values, rowCount);
+    columns[field] = values;
+  }
+
+  for (const field of DICTIONARY_STRING_FIELDS) {
+    const packed = block[field];
+    if (!packed) throw new Error(`FindingBlock is missing ${field}`);
+    const values = decodeDictColumn(packed);
+    assertDenseLength(field, values, rowCount);
+    columns[field] = values;
+  }
+
+  for (const field of STRING_ARRAY_FIELDS) {
+    const packed = block[field];
+    if (!packed) throw new Error(`FindingBlock is missing ${field}`);
+    if (packed.offsets[0] !== 0 || packed.offsets[rowCount] !== packed.values.length) {
+      throw new Error(`${field} offsets do not span the packed values`);
+    }
+    columns[field] = decodeOffsetStringArrays(packed, rowCount);
+  }
+
+  const sparseField = NULLABLE_STRING_FIELDS[0];
+  const sparse = block[sparseField];
+  if (!sparse || sparse.rowIndices.length !== sparse.values.length) {
+    throw new Error(`FindingBlock has an invalid ${sparseField} sparse column`);
+  }
+  const sparseValues = new Array<string | null>(rowCount).fill(null);
+  for (let index = 0; index < sparse.rowIndices.length; index++) {
+    const rowIndex = sparse.rowIndices[index]!;
+    if (rowIndex >= rowCount || sparseValues[rowIndex] !== null) {
+      throw new Error(`${sparseField} has an invalid row index ${rowIndex}`);
+    }
+    sparseValues[rowIndex] = sparse.values[index]!;
+  }
+  columns[sparseField] = sparseValues;
+
+  return Array.from({ length: rowCount }, (_, rowIndex) => {
+    const raw: Record<string, unknown> = {};
+    for (const field of Object.keys(columns)) {
+      raw[field] = columns[field]![rowIndex];
+    }
+    return normalizeFindingRow(raw);
   });
 }

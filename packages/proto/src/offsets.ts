@@ -1,6 +1,6 @@
 import { create } from "@bufbuild/protobuf";
-import type { OffsetStringArrays } from "./gen/findings/v1/findings_pb.js";
-import { OffsetStringArraysSchema } from "./gen/findings/v1/findings_pb.js";
+import type { OffsetStringArrays } from "./gen/findings/v2/findings_pb.js";
+import { OffsetStringArraysSchema } from "./gen/findings/v2/findings_pb.js";
 
 export type OffsetEncodeState = {
   values: string[];

@@ -98,7 +98,9 @@ function asStringArray(value: unknown): string[] {
   return values;
 }
 
-export function normalizeFindingRow(source: Readonly<Record<string, unknown>>): FindingRow {
+export function normalizeFindingRow(
+  source: Readonly<Partial<Record<keyof FindingRow, unknown>>>,
+): FindingRow {
   const row = Object.assign({}, EMPTY_FINDING_ROW);
 
   for (let index = 0; index < STRING_FIELDS.length; index++) {

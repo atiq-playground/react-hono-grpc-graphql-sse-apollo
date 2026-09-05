@@ -23,6 +23,19 @@
         "command": "tsc -b apps/dashboard/tsconfig.json --pretty false"
       }
     },
+    "codegen": {
+      "executor": "nx:run-commands",
+      "inputs": [
+        "{projectRoot}/codegen.ts",
+        "{projectRoot}/src/graphql/operations.graphql",
+        "{workspaceRoot}/apps/gateway/src/graphql/schema.graphql"
+      ],
+      "outputs": ["{projectRoot}/src/graphql/__generated__"],
+      "options": {
+        "command": "graphql-codegen --config codegen.ts",
+        "cwd": "apps/dashboard"
+      }
+    },
     "test": {
       "executor": "nx:run-commands",
       "options": {

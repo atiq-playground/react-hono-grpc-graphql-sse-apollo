@@ -12,9 +12,10 @@ alwaysApply: false
 - Use React Testing Library for user-observable component behavior.
 - Use Playwright for critical browser flows.
 
-Prefer deterministic tests around streaming transforms, schema rejection,
-manifest publication, worker-message protocols, URL serialization, and compact
-query behavior. Final QA is risk-based; no blanket coverage percentage applies.
+Prefer deterministic tests around source streaming, schema rejection, query
+compilation and cursors, Dataset Event codecs, Apollo cache merging, URL
+serialization, and export escaping. Final QA is risk-based; no blanket
+coverage percentage applies.
 
 Do not read `ui_demo.json` directly in tests. Use small sanitized fixtures
 derived by the bounded inspection workflow.

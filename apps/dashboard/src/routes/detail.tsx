@@ -1,98 +1,106 @@
-import { gql, type TypedDocumentNode } from "@apollo/client";
-import { skipToken, useSuspenseQuery } from "@apollo/client/react";
-import { Suspense } from "react";
-import { useParams } from "react-router";
-import type { FindingDetailQuery, FindingDetailVariables } from "../graphql/generated";
+import { Button } from "@repo/ui/components/ui/button";
+import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router";
+import { useStore } from "zustand";
 
-const FINDING: TypedDocumentNode<FindingDetailQuery, FindingDetailVariables> = gql`
-  query FindingDetail($id: ID!) {
-    finding(id: $id) {
-      id
-      group
-      repo
-      image
-      cve
-      severity
-      packageName
-      packageVersion
-      status
-      kaiStatus
-      description
-      cvss
-    }
-  }
-`;
+import { useDashboardStore } from "../app/dashboard-context";
+import { isFindingId, useFinding } from "../features/detail/use-finding";
+import {
+  FindingDetailLoading,
+  FindingDetailState,
+  FindingLiveStatus,
+} from "../features/finding-detail/finding-detail-states";
+import { FindingDetailView } from "../features/finding-detail/finding-detail-view";
 
-function FindingDetailBody({ id }: { id: string }) {
-  const { data, dataState } = useSuspenseQuery(FINDING, id ? { variables: { id } } : skipToken);
-
-  if (!id || dataState !== "complete") {
-    return <p className="mt-4 text-sm">Missing finding id.</p>;
-  }
-
-  const finding = data.finding;
-  if (!finding) {
-    return <p className="mt-4 text-sm">Finding not found.</p>;
-  }
-
-  return (
-    <dl className="mt-4 grid gap-2 text-sm md:grid-cols-2">
-      <div>
-        <dt className="font-medium">CVE</dt>
-        <dd>{finding.cve}</dd>
-      </div>
-      <div>
-        <dt className="font-medium">Severity</dt>
-        <dd>{finding.severity}</dd>
-      </div>
-      <div>
-        <dt className="font-medium">Package</dt>
-        <dd>
-          {finding.packageName}@{finding.packageVersion}
-        </dd>
-      </div>
-      <div>
-        <dt className="font-medium">Status</dt>
-        <dd>{finding.status}</dd>
-      </div>
-      <div>
-        <dt className="font-medium">Group / Repo</dt>
-        <dd>
-          {finding.group} / {finding.repo}
-        </dd>
-      </div>
-      <div>
-        <dt className="font-medium">Image</dt>
-        <dd>{finding.image}</dd>
-      </div>
-      <div>
-        <dt className="font-medium">CVSS</dt>
-        <dd>{finding.cvss}</dd>
-      </div>
-      <div>
-        <dt className="font-medium">kaiStatus</dt>
-        <dd>{finding.kaiStatus ?? "—"}</dd>
-      </div>
-      <div className="md:col-span-2">
-        <dt className="font-medium">Description</dt>
-        <dd className="mt-1 whitespace-pre-wrap">{finding.description}</dd>
-      </div>
-    </dl>
-  );
+function hasInAppHistory(): boolean {
+  const state: unknown = window.history.state;
+  if (typeof state !== "object" || state === null || !("idx" in state)) return false;
+  return typeof state.idx === "number" && state.idx > 0;
 }
 
 export function DetailPage() {
   const { id = "" } = useParams();
+  const navigate = useNavigate();
+  const store = useDashboardStore();
+  const isValidId = isFindingId(id);
+  const { data, loading, error, refetch } = useFinding(id);
+  const connection = useStore(store, (value) => value.connection);
+  const liveEvent = useStore(
+    store,
+    (value) => value.recentFindingEvents.find((event) => event.id === id) ?? null,
+  );
+  const [removedId, setRemovedId] = useState<string | null>(null);
+  const finding = data?.finding;
+  const isRemoved = removedId === id || liveEvent?.type === "deleted";
+
+  useEffect(() => {
+    if (liveEvent?.type === "deleted") setRemovedId(id);
+    if (liveEvent?.type === "upserted") {
+      setRemovedId((current) => (current === id ? null : current));
+    }
+  }, [id, liveEvent]);
+
+  const handleBack = () => {
+    if (hasInAppHistory()) {
+      void navigate(-1);
+      return;
+    }
+    void navigate("/explore");
+  };
 
   return (
-    <section aria-labelledby="detail-heading">
-      <h1 id="detail-heading" className="text-2xl font-semibold">
-        Finding detail
-      </h1>
-      <p className="text-muted-foreground mt-2 font-mono text-sm break-all">{id || "—"}</p>
-      <Suspense fallback={<p className="mt-4">Loading…</p>}>
-        <FindingDetailBody id={id} />
-      </Suspense>
+    <section className="space-y-6" aria-labelledby="detail-heading">
+      <header className="border-b pb-5">
+        <Button type="button" variant="ghost" size="sm" className="-ml-3" onClick={handleBack}>
+          <span aria-hidden="true">←</span>
+          Back to Explore
+        </Button>
+        <div className="mt-5 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+          <div className="min-w-0">
+            <p className="text-xs font-medium tracking-widest text-muted-foreground uppercase">
+              Record detail
+            </p>
+            <h1
+              id="detail-heading"
+              className="mt-1 break-words text-3xl font-semibold tracking-tight"
+            >
+              {finding?.cve || "Finding detail"}
+            </h1>
+            <p className="mt-2 break-all font-mono text-xs text-muted-foreground">{id}</p>
+          </div>
+          <FindingLiveStatus connection={connection} event={liveEvent} />
+        </div>
+      </header>
+
+      {!isValidId && (
+        <FindingDetailState
+          title="Invalid finding ID"
+          message="This address does not contain a valid opaque finding identifier. No request was sent."
+          isError
+        />
+      )}
+      {isValidId && isRemoved && (
+        <FindingDetailState
+          title="Finding no longer in dataset"
+          message="A live deletion event removed this record. The previous detail is not displayed because it may be stale."
+        />
+      )}
+      {isValidId && !isRemoved && loading && !finding && <FindingDetailLoading />}
+      {isValidId && !isRemoved && error && (
+        <FindingDetailState
+          title="Could not load finding"
+          message="The gateway did not return this record detail. Try the request again."
+          isError
+          onRetry={() => void refetch()}
+        />
+      )}
+      {isValidId && !isRemoved && !loading && !error && !finding && (
+        <FindingDetailState
+          title="Finding not found"
+          message="No current record matches this opaque finding identifier."
+        />
+      )}
+      {isValidId && !isRemoved && finding && <FindingDetailView finding={finding} />}
     </section>
   );
 }

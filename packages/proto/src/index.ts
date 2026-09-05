@@ -8,21 +8,25 @@ export {
   internDictValue,
 } from "./dict.js";
 export type {
+  ApplyChangesRequest,
+  ApplyChangesResponse,
   DictColumn,
   FindingBlock,
+  IngestBlocksResponse,
   OffsetStringArrays,
   SparseStringColumn,
-  StreamRequest,
-} from "./gen/findings/v1/findings_pb.js";
+} from "./gen/findings/v2/findings_pb.js";
 export {
+  ApplyChangesRequestSchema,
+  ApplyChangesResponseSchema,
   DictColumnSchema,
   FindingBlockSchema,
-  FindingsService,
-  file_findings_v1_findings,
+  file_findings_v2_findings,
+  IngestBlocksResponseSchema,
+  IngestService,
   OffsetStringArraysSchema,
   SparseStringColumnSchema,
-  StreamRequestSchema,
-} from "./gen/findings/v1/findings_pb.js";
+} from "./gen/findings/v2/findings_pb.js";
 export type { OffsetEncodeState } from "./offsets.js";
 export {
   appendOffsetRow,
