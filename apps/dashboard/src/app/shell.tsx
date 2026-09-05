@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from "react-router";
-import { useTheme } from "./providers";
+import { useTheme } from "./dashboard-context";
 import {
   loadCompareRoute,
   loadExploreRoute,
@@ -25,7 +25,7 @@ export function AppShell() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="border-b px-4 py-3">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
+        <div className="mx-auto flex w-full max-w-[1600px] items-center justify-between gap-4">
           <nav aria-label="Primary" className="flex gap-4">
             <NavLink to="/" className={linkClass} end {...intentPrefetchProps(loadOverviewRoute)}>
               Overview
@@ -46,7 +46,7 @@ export function AppShell() {
           </button>
         </div>
       </header>
-      <main className="mx-auto max-w-7xl p-4">
+      <main className="mx-auto w-full max-w-[1600px] p-4">
         <Outlet />
       </main>
     </div>

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo } from "react";
+import { type ComponentType, type LazyExoticComponent, lazy, Suspense } from "react";
 import { createBrowserRouter, RouterProvider } from "react-router";
 import { AppProviders } from "./app/providers";
 import { RouteErrorBoundary } from "./app/RouteErrorBoundary";
@@ -7,18 +7,15 @@ import {
   loadDetailRoute,
   loadExploreRoute,
   loadOverviewRoute,
-  type RouteLoader,
 } from "./app/route-loaders";
 import { AppShell } from "./app/shell";
 
-type LazyRouteProps = {
-  loader: RouteLoader;
-};
-
-function LazyRoute({ loader }: LazyRouteProps) {
-  const Page = useMemo(() => lazy(loader), [loader]);
-  return <Page />;
-}
+// Module-level lazy() — do not create React.lazy inside render/useMemo.
+// Per-mount lazy types (StrictMode remounts) can leave Suspense pending forever.
+const OverviewPage = lazy(loadOverviewRoute);
+const ExplorePage = lazy(loadExploreRoute);
+const ComparePage = lazy(loadCompareRoute);
+const DetailPage = lazy(loadDetailRoute);
 
 function RouteFallback({ label }: { label: string }) {
   return (
@@ -33,12 +30,12 @@ function RouteFallback({ label }: { label: string }) {
   );
 }
 
-function routeElement(loader: RouteLoader, label: string) {
+function routeElement(Page: LazyExoticComponent<ComponentType>, label: string) {
   return (
     <RouteErrorBoundary>
       {(retryKey) => (
         <Suspense fallback={<RouteFallback label={label} />}>
-          <LazyRoute key={retryKey} loader={loader} />
+          <Page key={retryKey} />
         </Suspense>
       )}
     </RouteErrorBoundary>
@@ -52,19 +49,19 @@ const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: routeElement(loadOverviewRoute, "overview"),
+        element: routeElement(OverviewPage, "overview"),
       },
       {
         path: "explore",
-        element: routeElement(loadExploreRoute, "explore"),
+        element: routeElement(ExplorePage, "explore"),
       },
       {
         path: "compare",
-        element: routeElement(loadCompareRoute, "compare"),
+        element: routeElement(ComparePage, "compare"),
       },
       {
         path: "finding/:id",
-        element: routeElement(loadDetailRoute, "record detail"),
+        element: routeElement(DetailPage, "record detail"),
       },
     ],
   },

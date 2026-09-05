@@ -1,6 +1,6 @@
 import { gql } from "@apollo/client";
 import { useQuery } from "@apollo/client/react";
-import { lazy, Suspense, useMemo } from "react";
+import { lazy, Suspense } from "react";
 import { useNavigate } from "react-router";
 import { exploreStateToSearch } from "../app/url-state";
 import type { FacetsQuery, SummaryQuery } from "../graphql/generated";
@@ -29,19 +29,16 @@ const OVERVIEW = gql`
   }
 `;
 
+const OverviewCharts = lazy(() =>
+  import("../features/charts/OverviewCharts").then(({ OverviewCharts: Charts }) => ({
+    default: Charts,
+  })),
+);
+
 export function OverviewPage() {
   const navigate = useNavigate();
   const { data, loading, error } = useQuery<SummaryQuery & FacetsQuery>(OVERVIEW);
   const summary = data?.summary;
-  const OverviewCharts = useMemo(
-    () =>
-      lazy(() =>
-        import("../features/charts/OverviewCharts").then(({ OverviewCharts }) => ({
-          default: OverviewCharts,
-        })),
-      ),
-    [],
-  );
 
   return (
     <section aria-labelledby="overview-heading">

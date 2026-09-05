@@ -1,13 +1,8 @@
 import { ApolloClient, HttpLink, InMemoryCache } from "@apollo/client";
 import { ApolloProvider } from "@apollo/client/react";
-import { createContext, type ReactNode, useContext, useMemo, useState } from "react";
-import { createDashboardStore, type DashboardStore } from "../state/dashboard-store";
-
-const StoreContext = createContext<DashboardStore | null>(null);
-const ThemeContext = createContext<{
-  theme: "light" | "dark";
-  setTheme: (theme: "light" | "dark") => void;
-}>({ theme: "light", setTheme: () => undefined });
+import { type ReactNode, useMemo, useState } from "react";
+import { createDashboardStore } from "../state/dashboard-store";
+import { StoreContext, ThemeContext } from "./dashboard-context";
 
 const PREFS_KEY = "svd.prefs.v1";
 
@@ -32,9 +27,25 @@ function loadPrefs(): Prefs {
   return { theme: "light" };
 }
 
+const GRAPHQL_TIMEOUT_MS = 30_000;
+
 function createApollo() {
   return new ApolloClient({
-    link: new HttpLink({ uri: "/graphql" }),
+    link: new HttpLink({
+      uri: "/graphql",
+      fetch: (input, init) => {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), GRAPHQL_TIMEOUT_MS);
+        const signal = init?.signal;
+        if (signal) {
+          if (signal.aborted) controller.abort();
+          else signal.addEventListener("abort", () => controller.abort(), { once: true });
+        }
+        return fetch(input, { ...init, signal: controller.signal }).finally(() => {
+          clearTimeout(timer);
+        });
+      },
+    }),
     cache: new InMemoryCache(),
   });
 }
@@ -62,14 +73,4 @@ export function AppProviders({ children }: { children: ReactNode }) {
       </ThemeContext.Provider>
     </ApolloProvider>
   );
-}
-
-export function useDashboardStore(): DashboardStore {
-  const store = useContext(StoreContext);
-  if (!store) throw new Error("Dashboard store missing");
-  return store;
-}
-
-export function useTheme() {
-  return useContext(ThemeContext);
 }

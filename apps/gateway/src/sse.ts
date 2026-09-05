@@ -12,17 +12,19 @@ import type { Context } from "hono";
 import { streamSSE } from "hono/streaming";
 import Redis from "ioredis";
 import { z } from "zod/mini";
+import { REDIS_STREAM, REDIS_URL } from "./env.js";
 import { ensureProducerStream } from "./producer-client.js";
 
-const DATASET_VERSION = process.env.DATASET_VERSION ?? "local-1";
-const REDIS_URL = process.env.REDIS_URL ?? "redis://127.0.0.1:6379";
-const REDIS_STREAM = process.env.REDIS_STREAM ?? `findings:${DATASET_VERSION}`;
+const XREAD_COUNT = 32;
+const XREAD_BLOCK_MS = 5_000;
+const KEEPALIVE_MS = 15_000;
 
 const StreamQuery = z.object({
   datasetVersion: z.optional(z.string()),
 });
 
 type StreamEntry = [id: string, fields: string[]];
+type XReadResult = Array<[stream: string, entries: StreamEntry[]]> | null;
 
 function fieldsToMap(fields: string[]): Record<string, string> {
   const out: Record<string, string> = {};
@@ -42,6 +44,11 @@ function parseLastEventId(header: string | undefined): bigint {
   return BigInt(header);
 }
 
+function streamKeyFor(datasetVersion: string | undefined): string {
+  if (datasetVersion === undefined) return REDIS_STREAM;
+  return `findings:${datasetVersion}`;
+}
+
 export async function sseRoute(c: Context): Promise<Response> {
   const queryParse = StreamQuery.safeParse({
     datasetVersion: c.req.query("datasetVersion"),
@@ -57,16 +64,12 @@ export async function sseRoute(c: Context): Promise<Response> {
     return c.json({ error: "Invalid Last-Event-ID" }, 400);
   }
 
-  const streamKey =
-    queryParse.data.datasetVersion !== undefined
-      ? `findings:${queryParse.data.datasetVersion}`
-      : REDIS_STREAM;
-
+  const streamKey = streamKeyFor(queryParse.data.datasetVersion);
   const sentryTrace = c.req.header("sentry-trace");
   const baggage = c.req.header("baggage");
 
   // Kick producer fill if Redis is empty (does not block first frames once filled).
-  void ensureProducerStream(streamKey, sentryTrace ?? undefined, baggage ?? undefined);
+  void ensureProducerStream(streamKey, sentryTrace, baggage);
 
   return streamSSE(c, async (stream) => {
     const redis = new Redis(REDIS_URL, { maxRetriesPerRequest: null });
@@ -82,7 +85,7 @@ export async function sseRoute(c: Context): Promise<Response> {
 
     const keepalive = setInterval(() => {
       if (alive) void stream.writeSSE({ event: "keepalive", data: "" });
-    }, 15_000);
+    }, KEEPALIVE_MS);
 
     try {
       await stream.writeSSE({
@@ -97,17 +100,15 @@ export async function sseRoute(c: Context): Promise<Response> {
       while (alive) {
         const result = (await redis.xread(
           "COUNT",
-          32,
+          XREAD_COUNT,
           "BLOCK",
-          5_000,
+          XREAD_BLOCK_MS,
           "STREAMS",
           streamKey,
           cursor,
-        )) as Array<[string, StreamEntry[]]> | null;
+        )) as XReadResult;
 
-        if (!result) {
-          continue;
-        }
+        if (!result) continue;
 
         for (const [, entries] of result) {
           for (const [id, fields] of entries) {

@@ -4,7 +4,7 @@ import { Button, Input } from "@repo/ui";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { useStore } from "zustand";
-import { useDashboardStore } from "../app/providers";
+import { useDashboardStore } from "../app/dashboard-context";
 import { exploreStateToSearch, parseExploreSearch } from "../app/url-state";
 import type { FacetsQuery, StreamDescriptorQuery } from "../graphql/generated";
 import { createQueryWorker, type QueryWorkerHandle } from "../query-worker/bridge";
@@ -26,6 +26,12 @@ const STREAM_AND_FACETS = gql`
   }
 `;
 
+const VirtualizedFindingsGrid = lazy(() =>
+  import("../features/grid/VirtualizedFindingsGrid").then(({ VirtualizedFindingsGrid: Grid }) => ({
+    default: Grid,
+  })),
+);
+
 export function ExplorePage() {
   const store = useDashboardStore();
   const [params, setParams] = useSearchParams();
@@ -44,15 +50,6 @@ export function ExplorePage() {
   const workerRef = useRef<QueryWorkerHandle | null>(null);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [rowCache, setRowCache] = useState<Map<number, PageRow>>(() => new Map());
-  const VirtualizedFindingsGrid = useMemo(
-    () =>
-      lazy(() =>
-        import("../features/grid/VirtualizedFindingsGrid").then(({ VirtualizedFindingsGrid }) => ({
-          default: VirtualizedFindingsGrid,
-        })),
-      ),
-    [],
-  );
 
   const { data, error: gqlError } = useQuery<StreamDescriptorQuery & FacetsQuery>(
     STREAM_AND_FACETS,

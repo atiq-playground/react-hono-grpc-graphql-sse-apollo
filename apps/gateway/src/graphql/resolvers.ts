@@ -3,10 +3,15 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { type ClickHouseClient, createClient } from "@clickhouse/client";
 import { z } from "zod/mini";
+import {
+  CLICKHOUSE_DB,
+  CLICKHOUSE_PASSWORD,
+  CLICKHOUSE_URL,
+  CLICKHOUSE_USER,
+  DATASET_VERSION,
+  REDIS_STREAM,
+} from "../env.js";
 import { throwClientError } from "./errors.js";
-
-const DATASET_VERSION = process.env.DATASET_VERSION ?? "local-1";
-const REDIS_STREAM = process.env.REDIS_STREAM ?? `findings:${DATASET_VERSION}`;
 
 const FindingId = z.object({
   group: z.string(),
@@ -16,6 +21,8 @@ const FindingId = z.object({
   packageName: z.string(),
   path: z.string(),
 });
+
+type FindingIdKey = z.infer<typeof FindingId>;
 
 const FacetColumn = z.enum([
   "severity",
@@ -33,10 +40,10 @@ export type GatewayContext = {
 
 export function createClickHouse(): ClickHouseClient {
   return createClient({
-    url: process.env.CLICKHOUSE_URL ?? "http://127.0.0.1:8123",
-    username: process.env.CLICKHOUSE_USER ?? "default",
-    password: process.env.CLICKHOUSE_PASSWORD ?? "",
-    database: process.env.CLICKHOUSE_DB ?? "default",
+    url: CLICKHOUSE_URL,
+    username: CLICKHOUSE_USER,
+    password: CLICKHOUSE_PASSWORD,
+    database: CLICKHOUSE_DB,
   });
 }
 
@@ -45,18 +52,7 @@ export function loadTypeDefs(): string {
   return readFileSync(join(here, "schema.graphql"), "utf8");
 }
 
-function encodeFindingId(row: {
-  group: string;
-  repo: string;
-  image: string;
-  cve: string;
-  packageName: string;
-  path: string;
-}): string {
-  return Buffer.from(JSON.stringify(row), "utf8").toString("base64url");
-}
-
-function decodeFindingId(id: string): z.infer<typeof FindingId> {
+function decodeFindingId(id: string): FindingIdKey {
   try {
     const parsed: unknown = JSON.parse(Buffer.from(id, "base64url").toString("utf8"));
     return FindingId.parse(parsed);
@@ -76,6 +72,50 @@ async function queryJson<T>(
     format: "JSONEachRow",
   });
   return (await result.json()) as T[];
+}
+
+function text(value: unknown): string {
+  return String(value ?? "");
+}
+
+function textList(value: unknown): string[] {
+  return Array.isArray(value) ? value.map((item) => String(item)) : [];
+}
+
+function nullableText(value: unknown): string | null {
+  return value === null || value === undefined ? null : String(value);
+}
+
+function mapFinding(id: string, row: Record<string, unknown>) {
+  return {
+    id,
+    group: text(row.group),
+    repo: text(row.repo),
+    image: text(row.image),
+    cve: text(row.cve),
+    severity: text(row.severity),
+    packageName: text(row.packageName),
+    packageVersion: text(row.packageVersion),
+    packageType: text(row.packageType),
+    path: text(row.path),
+    status: text(row.status),
+    advisoryType: text(row.advisoryType),
+    buildType: text(row.buildType),
+    type: text(row.type),
+    cvss: Number(row.cvss ?? 0),
+    description: text(row.description),
+    cause: text(row.cause),
+    exploit: text(row.exploit),
+    fixDate: text(row.fixDate),
+    published: text(row.published),
+    layerTime: text(row.layerTime),
+    link: text(row.link),
+    owner: text(row.owner),
+    vecStr: text(row.vecStr),
+    kaiStatus: nullableText(row.kaiStatus),
+    riskFactors: textList(row.riskFactors),
+    applicableRules: textList(row.applicableRules),
+  };
 }
 
 export async function queryFacet(
@@ -172,38 +212,7 @@ export const resolvers = {
       );
       const row = rows[0];
       if (!row) return null;
-      return {
-        id: args.id,
-        group: String(row.group ?? ""),
-        repo: String(row.repo ?? ""),
-        image: String(row.image ?? ""),
-        cve: String(row.cve ?? ""),
-        severity: String(row.severity ?? ""),
-        packageName: String(row.packageName ?? ""),
-        packageVersion: String(row.packageVersion ?? ""),
-        packageType: String(row.packageType ?? ""),
-        path: String(row.path ?? ""),
-        status: String(row.status ?? ""),
-        advisoryType: String(row.advisoryType ?? ""),
-        buildType: String(row.buildType ?? ""),
-        type: String(row.type ?? ""),
-        cvss: Number(row.cvss ?? 0),
-        description: String(row.description ?? ""),
-        cause: String(row.cause ?? ""),
-        exploit: String(row.exploit ?? ""),
-        fixDate: String(row.fixDate ?? ""),
-        published: String(row.published ?? ""),
-        layerTime: String(row.layerTime ?? ""),
-        link: String(row.link ?? ""),
-        owner: String(row.owner ?? ""),
-        vecStr: String(row.vecStr ?? ""),
-        kaiStatus:
-          row.kaiStatus === null || row.kaiStatus === undefined ? null : String(row.kaiStatus),
-        riskFactors: Array.isArray(row.riskFactors) ? row.riskFactors.map((v) => String(v)) : [],
-        applicableRules: Array.isArray(row.applicableRules)
-          ? row.applicableRules.map((v) => String(v))
-          : [],
-      };
+      return mapFinding(args.id, row);
     },
 
     async streamDescriptor(_parent: unknown, _args: unknown, ctx: GatewayContext) {
@@ -222,5 +231,3 @@ export const resolvers = {
     },
   },
 };
-
-export { encodeFindingId };

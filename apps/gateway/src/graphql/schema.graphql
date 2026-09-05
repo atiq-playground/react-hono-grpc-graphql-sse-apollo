@@ -1,7 +1,5 @@
 # GraphQL control plane (T07). No subscriptions — firehose is SSE (T06).
 
-scalar JSON
-
 type SeverityCount {
   severity: String!
   count: Int!

@@ -3,7 +3,8 @@
  */
 import { ApolloServer } from "@apollo/server";
 import { serve } from "@hono/node-server";
-import { Hono } from "hono";
+import { type Context, Hono } from "hono";
+import { GATEWAY_HOST, GATEWAY_PORT } from "./env.js";
 import { formatGatewayError } from "./graphql/errors.js";
 import {
   createClickHouse,
@@ -14,12 +15,47 @@ import {
 import { initGatewaySentry } from "./sentry.js";
 import { sseRoute } from "./sse.js";
 
-const PORT = Number(process.env.GATEWAY_PORT ?? 4000);
-const HOST = process.env.GATEWAY_HOST ?? "127.0.0.1";
+type GraphqlBody = {
+  query?: string;
+  variables?: Record<string, unknown>;
+  operationName?: string;
+};
+
+async function handleGraphql(
+  c: Context,
+  apollo: ApolloServer<GatewayContext>,
+  ctx: GatewayContext,
+): Promise<Response> {
+  let body: GraphqlBody;
+  try {
+    body = (await c.req.json()) as GraphqlBody;
+  } catch {
+    return c.json({ errors: [{ message: "Invalid request body" }] }, 400);
+  }
+
+  try {
+    const result = await apollo.executeOperation(
+      {
+        query: body.query ?? "",
+        variables: body.variables,
+        operationName: body.operationName,
+      },
+      { contextValue: ctx },
+    );
+    if (result.body.kind === "single") {
+      return c.json(result.body.singleResult);
+    }
+    return c.json({ errors: [{ message: "Something went wrong" }] }, 500);
+  } catch (error: unknown) {
+    console.error("gateway /graphql failed:", error);
+    return c.json({ errors: [{ message: "Something went wrong" }] }, 500);
+  }
+}
 
 async function main(): Promise<void> {
   initGatewaySentry();
   const ch = createClickHouse();
+  const ctx: GatewayContext = { ch };
   const apollo = new ApolloServer<GatewayContext>({
     typeDefs: loadTypeDefs(),
     resolvers,
@@ -29,42 +65,11 @@ async function main(): Promise<void> {
   await apollo.start();
 
   const app = new Hono();
-
   app.get("/healthz", (c) => c.json({ ok: true }));
-
-  app.post("/graphql", async (c) => {
-    let body: {
-      query?: string;
-      variables?: Record<string, unknown>;
-      operationName?: string;
-    };
-    try {
-      body = (await c.req.json()) as typeof body;
-    } catch {
-      return c.json({ errors: [{ message: "Invalid request body" }] }, 400);
-    }
-    try {
-      const result = await apollo.executeOperation(
-        {
-          query: body.query ?? "",
-          variables: body.variables,
-          operationName: body.operationName,
-        },
-        { contextValue: { ch } },
-      );
-      if (result.body.kind === "single") {
-        return c.json(result.body.singleResult);
-      }
-      return c.json({ errors: [{ message: "Something went wrong" }] }, 500);
-    } catch (error: unknown) {
-      console.error("gateway /graphql failed:", error);
-      return c.json({ errors: [{ message: "Something went wrong" }] }, 500);
-    }
-  });
-
+  app.post("/graphql", (c) => handleGraphql(c, apollo, ctx));
   app.get("/api/stream", (c) => sseRoute(c));
 
-  serve({ fetch: app.fetch, port: PORT, hostname: HOST }, (info) => {
+  serve({ fetch: app.fetch, port: GATEWAY_PORT, hostname: GATEWAY_HOST }, (info) => {
     console.log(`gateway listening on http://${info.address}:${info.port}`);
   });
 

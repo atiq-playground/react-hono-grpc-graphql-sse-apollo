@@ -14,6 +14,7 @@ export default defineConfig({
     dedupe: ["react", "react-dom"],
   },
   server: {
+    host: "127.0.0.1",
     port: 4200,
     fs: {
       allow: [workspaceRoot],
@@ -26,6 +27,9 @@ export default defineConfig({
       "/api/stream": {
         target: "http://127.0.0.1:4000",
         changeOrigin: true,
+        // SSE must not be buffered; long-lived stream.
+        timeout: 0,
+        proxyTimeout: 0,
       },
     },
   },
