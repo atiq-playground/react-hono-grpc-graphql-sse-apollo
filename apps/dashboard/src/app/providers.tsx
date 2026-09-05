@@ -1,6 +1,6 @@
 import { ApolloClient, HttpLink, InMemoryCache } from "@apollo/client";
 import { ApolloProvider } from "@apollo/client/react";
-import { type ReactNode, useMemo, useState } from "react";
+import { type ReactNode, useState } from "react";
 import { createDashboardStore } from "../state/dashboard-store";
 import { StoreContext, ThemeContext } from "./dashboard-context";
 
@@ -29,31 +29,28 @@ function loadPrefs(): Prefs {
 
 const GRAPHQL_TIMEOUT_MS = 30_000;
 
-function createApollo() {
-  return new ApolloClient({
-    link: new HttpLink({
-      uri: "/graphql",
-      fetch: (input, init) => {
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), GRAPHQL_TIMEOUT_MS);
-        const signal = init?.signal;
-        if (signal) {
-          if (signal.aborted) controller.abort();
-          else signal.addEventListener("abort", () => controller.abort(), { once: true });
-        }
-        return fetch(input, { ...init, signal: controller.signal }).finally(() => {
-          clearTimeout(timer);
-        });
-      },
-    }),
-    cache: new InMemoryCache(),
-  });
-}
+const client = new ApolloClient({
+  link: new HttpLink({
+    uri: "/graphql",
+    fetch: (input, init) => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), GRAPHQL_TIMEOUT_MS);
+      const signal = init?.signal;
+      if (signal) {
+        if (signal.aborted) controller.abort();
+        else signal.addEventListener("abort", () => controller.abort(), { once: true });
+      }
+      return fetch(input, { ...init, signal: controller.signal }).finally(() => {
+        clearTimeout(timer);
+      });
+    },
+  }),
+  cache: new InMemoryCache(),
+});
 
 export function AppProviders({ children }: { children: ReactNode }) {
   const [prefs, setPrefs] = useState<Prefs>(() => loadPrefs());
-  const store = useMemo(() => createDashboardStore(), []);
-  const client = useMemo(() => createApollo(), []);
+  const [store] = useState(() => createDashboardStore());
 
   const setTheme = (theme: "light" | "dark") => {
     const next = { theme };
