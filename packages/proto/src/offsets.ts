@@ -43,9 +43,9 @@ export function decodeOffsetStringArrays(packed: OffsetStringArrays, rowCount: n
   }
   const out: string[][] = new Array(rowCount);
   for (let i = 0; i < rowCount; i++) {
-    const start = offsets[i];
-    const end = offsets[i + 1];
-    if (start === undefined || end === undefined || end < start) {
+    const start = offsets[i]!;
+    const end = offsets[i + 1]!;
+    if (end < start) {
       throw new Error(`Invalid offsets at row ${i}: ${start}..${end}`);
     }
     out[i] = values.slice(start, end);

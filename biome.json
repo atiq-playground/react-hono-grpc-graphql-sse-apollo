@@ -28,6 +28,9 @@
       "preset": "recommended",
       "complexity": {
         "noImportantStyles": "off"
+      },
+      "style": {
+        "noNonNullAssertion": "off"
       }
     }
   },

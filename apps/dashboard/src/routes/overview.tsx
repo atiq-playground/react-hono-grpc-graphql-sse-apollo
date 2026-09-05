@@ -44,7 +44,9 @@ export function OverviewPage() {
         AI Analysis.
       </p>
       {loading ? <p>Loading aggregates…</p> : null}
-      {error ? <p className="text-destructive text-sm">Gateway error: {error.message}</p> : null}
+      {error ? (
+        <p className="text-destructive text-sm">Gateway unavailable. Try again later.</p>
+      ) : null}
       {summary ? (
         <OverviewCharts
           bySeverity={summary.bySeverity}

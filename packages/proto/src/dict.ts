@@ -61,10 +61,7 @@ export function decodeDictColumn(column: DictColumn): string[] {
   const { dictionary, indices } = column;
   const out: string[] = new Array(indices.length);
   for (let i = 0; i < indices.length; i++) {
-    const index = indices[i];
-    if (index === undefined) {
-      throw new Error(`DictColumn missing index at ${i}`);
-    }
+    const index = indices[i]!;
     const value = dictionary[index];
     if (value === undefined) {
       throw new Error(`DictColumn index ${index} out of range at row ${i}`);

@@ -53,7 +53,13 @@ export function DetailPage() {
       </h1>
       <p className="text-muted-foreground mt-2 font-mono text-sm break-all">{id}</p>
       {loading ? <p className="mt-4">Loading…</p> : null}
-      {error ? <p className="text-destructive mt-4 text-sm">{error.message}</p> : null}
+      {error ? (
+        <p className="text-destructive mt-4 text-sm">
+          {error.message === "Invalid finding id"
+            ? "Invalid finding id"
+            : "Could not load this finding. Try again later."}
+        </p>
+      ) : null}
       {finding ? (
         <dl className="mt-4 grid gap-2 text-sm md:grid-cols-2">
           <div>

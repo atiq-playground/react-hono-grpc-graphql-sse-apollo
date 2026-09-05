@@ -53,9 +53,8 @@ export async function sseRoute(c: Context): Promise<Response> {
   let afterSeq: bigint;
   try {
     afterSeq = parseLastEventId(c.req.header("Last-Event-ID"));
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Invalid Last-Event-ID";
-    return c.json({ error: message }, 400);
+  } catch {
+    return c.json({ error: "Invalid Last-Event-ID" }, 400);
   }
 
   const streamKey =

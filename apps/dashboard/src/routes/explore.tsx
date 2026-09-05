@@ -162,7 +162,7 @@ export function ExplorePage() {
         . Result set: {pageTotal.toLocaleString()}.
       </p>
       {gqlError ? (
-        <p className="text-destructive mt-2 text-sm">Gateway unavailable: {gqlError.message}</p>
+        <p className="text-destructive mt-2 text-sm">Gateway unavailable. Try again later.</p>
       ) : null}
 
       <div className="mt-4 flex flex-wrap items-end gap-3">

@@ -4,6 +4,7 @@
 import { ApolloServer } from "@apollo/server";
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
+import { formatGatewayError } from "./graphql/errors.js";
 import {
   createClickHouse,
   type GatewayContext,
@@ -22,6 +23,8 @@ async function main(): Promise<void> {
   const apollo = new ApolloServer<GatewayContext>({
     typeDefs: loadTypeDefs(),
     resolvers,
+    formatError: formatGatewayError,
+    includeStacktraceInErrorResponses: false,
   });
   await apollo.start();
 
@@ -30,23 +33,33 @@ async function main(): Promise<void> {
   app.get("/healthz", (c) => c.json({ ok: true }));
 
   app.post("/graphql", async (c) => {
-    const body = (await c.req.json()) as {
+    let body: {
       query?: string;
       variables?: Record<string, unknown>;
       operationName?: string;
     };
-    const result = await apollo.executeOperation(
-      {
-        query: body.query ?? "",
-        variables: body.variables,
-        operationName: body.operationName,
-      },
-      { contextValue: { ch } },
-    );
-    if (result.body.kind === "single") {
-      return c.json(result.body.singleResult);
+    try {
+      body = (await c.req.json()) as typeof body;
+    } catch {
+      return c.json({ errors: [{ message: "Invalid request body" }] }, 400);
     }
-    return c.json({ errors: [{ message: "Incremental results not supported" }] }, 500);
+    try {
+      const result = await apollo.executeOperation(
+        {
+          query: body.query ?? "",
+          variables: body.variables,
+          operationName: body.operationName,
+        },
+        { contextValue: { ch } },
+      );
+      if (result.body.kind === "single") {
+        return c.json(result.body.singleResult);
+      }
+      return c.json({ errors: [{ message: "Something went wrong" }] }, 500);
+    } catch (error: unknown) {
+      console.error("gateway /graphql failed:", error);
+      return c.json({ errors: [{ message: "Something went wrong" }] }, 500);
+    }
   });
 
   app.get("/api/stream", (c) => sseRoute(c));

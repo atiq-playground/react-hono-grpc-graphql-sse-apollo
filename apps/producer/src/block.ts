@@ -78,10 +78,7 @@ export function rowsToFindingBlock(
   const kaiValues: string[] = [];
 
   for (let index = 0; index < rowCount; index++) {
-    const row = rows[index];
-    if (row === undefined) {
-      throw new Error(`rowsToFindingBlock: missing row at ${index}`);
-    }
+    const row = rows[index]!;
 
     group[index] = row.group;
     repo[index] = row.repo;

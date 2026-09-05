@@ -3,6 +3,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { type ClickHouseClient, createClient } from "@clickhouse/client";
 import { z } from "zod/mini";
+import { throwClientError } from "./errors.js";
 
 const DATASET_VERSION = process.env.DATASET_VERSION ?? "local-1";
 const REDIS_STREAM = process.env.REDIS_STREAM ?? `findings:${DATASET_VERSION}`;
@@ -50,7 +51,7 @@ function decodeFindingId(id: string): z.infer<typeof FindingId> {
     const parsed: unknown = JSON.parse(Buffer.from(id, "base64url").toString("utf8"));
     return FindingId.parse(parsed);
   } catch {
-    throw new Error("Invalid finding id");
+    throwClientError("Invalid finding id");
   }
 }
 
