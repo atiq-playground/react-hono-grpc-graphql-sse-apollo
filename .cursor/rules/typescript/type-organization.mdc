@@ -1,0 +1,28 @@
+---
+description: Keep TypeScript type declarations cohesive and colocated
+globs: **/*.ts,**/*.tsx
+alwaysApply: false
+---
+# Type Organization
+
+- Move a cohesive, substantial group of types or interfaces to a colocated
+  `*.types.ts` file when declarations dominate or obscure the implementation.
+- Keep small, implementation-specific types local when extraction would reduce
+  readability.
+- Export only the minimal type surface consumers need; keep supporting aliases
+  private.
+- Use `import type` and `export type` for type-only dependencies.
+- Name type modules for their clear owner, such as `block.types.ts`. Do not
+  create vague global, shared, or common type dumping grounds.
+- Do not use `global.d.ts` for ordinary project types.
+- Do not extract types when doing so creates a circular dependency or weakens
+  type safety.
+
+```typescript
+// BAD: src/types/common.types.ts
+export type Data = Record<string, unknown>;
+
+// GOOD: src/block.types.ts
+type ColumnMap = Record<string, readonly string[]>;
+export type PackedFindingColumns = ColumnMap & { rowCount: number };
+```

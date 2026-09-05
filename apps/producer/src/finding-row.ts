@@ -1,4 +1,14 @@
-import type { DictColumn, FindingBlock, OffsetStringArrays, SparseStringColumn } from "@repo/proto";
+import type {
+  DictionaryField,
+  FindingRow,
+  OffsetStringArrayField,
+  RepeatedNumberField,
+  RepeatedStringField,
+  SourceFindingInput,
+  SparseStringField,
+} from "./finding-row.types.js";
+
+export type { FindingDataField, FindingRow, SourceFindingInput } from "./finding-row.types.js";
 
 export const CONTEXT_STRING_FIELDS = [
   "group",
@@ -38,56 +48,14 @@ export const STRING_ARRAY_FIELDS = [
   "applicableRules",
 ] as const satisfies readonly OffsetStringArrayField[];
 
-type FieldsOf<Group extends readonly PropertyKey[], Value> = {
-  [Field in Group[number]]: Value;
-};
-
-type Equal<Left, Right> = [Left] extends [Right] ? ([Right] extends [Left] ? true : false) : false;
-type Assert<Condition extends true> = Condition;
-type IsUnique<
-  Fields extends readonly PropertyKey[],
-  Seen extends PropertyKey = never,
-> = Fields extends readonly [
-  infer Field extends PropertyKey,
-  ...infer Rest extends readonly PropertyKey[],
-]
-  ? Field extends Seen
-    ? false
-    : IsUnique<Rest, Seen | Field>
-  : true;
-
-type FindingEnvelopeField = "$typeName" | "$unknown" | "sequence" | "datasetVersion" | "rowCount";
-export type FindingDataField = Exclude<keyof FindingBlock, FindingEnvelopeField>;
-type FieldsWithExactShape<Shape> = {
-  [Field in FindingDataField]: Equal<FindingBlock[Field], Shape> extends true ? Field : never;
-}[FindingDataField];
-type RepeatedStringField = FieldsWithExactShape<string[]>;
-type RepeatedNumberField = FieldsWithExactShape<number[]>;
-type DictionaryField = FieldsWithExactShape<DictColumn | undefined>;
-type SparseStringField = FieldsWithExactShape<SparseStringColumn | undefined>;
-type OffsetStringArrayField = FieldsWithExactShape<OffsetStringArrays | undefined>;
-
 // Context and plain strings share protobuf encoding but remain separate source semantics.
 const REPEATED_STRING_FIELDS = [...CONTEXT_STRING_FIELDS, ...PLAIN_STRING_FIELDS] as const;
 const STRING_FIELDS = [...REPEATED_STRING_FIELDS, ...DICTIONARY_STRING_FIELDS] as const;
-const ALL_FINDING_ROW_FIELDS = [
-  ...STRING_FIELDS,
-  ...NUMBER_FIELDS,
-  ...NULLABLE_STRING_FIELDS,
-  ...STRING_ARRAY_FIELDS,
-] as const;
 
-type FieldGroupsAreValid = Assert<IsUnique<typeof ALL_FINDING_ROW_FIELDS>> &
-  Assert<Equal<(typeof ALL_FINDING_ROW_FIELDS)[number], FindingDataField>> &
-  Assert<Equal<(typeof REPEATED_STRING_FIELDS)[number], RepeatedStringField>> &
-  Assert<Equal<(typeof DICTIONARY_STRING_FIELDS)[number], DictionaryField>> &
-  Assert<Equal<(typeof NUMBER_FIELDS)[number], RepeatedNumberField>> &
-  Assert<Equal<(typeof NULLABLE_STRING_FIELDS)[number], SparseStringField>> &
-  Assert<Equal<(typeof STRING_ARRAY_FIELDS)[number], OffsetStringArrayField>>;
-
-const EMPTY_STRING_VALUES = Object.fromEntries(
-  STRING_FIELDS.map((field) => [field, ""]),
-) as FieldsOf<typeof STRING_FIELDS, string>;
+const EMPTY_STRING_VALUES = Object.fromEntries(STRING_FIELDS.map((field) => [field, ""])) as Record<
+  (typeof STRING_FIELDS)[number],
+  string
+>;
 const EMPTY_FINDING_ROW = {
   ...EMPTY_STRING_VALUES,
   ...Object.fromEntries(NUMBER_FIELDS.map((field) => [field, 0])),
@@ -103,23 +71,6 @@ export const FINDING_ROW_FIELD_GROUPS = {
   nullableString: NULLABLE_STRING_FIELDS,
   stringArray: STRING_ARRAY_FIELDS,
 } as const;
-
-export type FindingRow = FieldGroupsAreValid extends true
-  ? FieldsOf<typeof CONTEXT_STRING_FIELDS, string> &
-      FieldsOf<typeof PLAIN_STRING_FIELDS, string> &
-      FieldsOf<typeof DICTIONARY_STRING_FIELDS, string> &
-      FieldsOf<typeof NUMBER_FIELDS, number> &
-      FieldsOf<typeof NULLABLE_STRING_FIELDS, string | null> &
-      FieldsOf<typeof STRING_ARRAY_FIELDS, string[]>
-  : never;
-
-export interface SourceFindingInput {
-  group: string;
-  repo: string;
-  image: string;
-  imageBuildType: string;
-  vulnerability: Readonly<Record<string, unknown>>;
-}
 
 function asString(value: unknown): string {
   if (value === null || value === undefined) return "";

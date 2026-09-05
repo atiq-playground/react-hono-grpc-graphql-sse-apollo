@@ -10,6 +10,7 @@ import {
   FindingBlockSchema,
   internDictValue,
 } from "@repo/proto";
+import type { PackedFindingColumns } from "./block.types.js";
 import {
   CONTEXT_STRING_FIELDS,
   DICTIONARY_STRING_FIELDS,
@@ -23,30 +24,6 @@ import {
 
 export const BLOCK_SIZE = Number(process.env.PRODUCER_BLOCK_SIZE ?? 2_048);
 
-type PlainColumnField =
-  | (typeof CONTEXT_STRING_FIELDS)[number]
-  | (typeof PLAIN_STRING_FIELDS)[number];
-type PlainColumns = { [Field in PlainColumnField]: string[] };
-type DictionaryColumns = {
-  [Field in (typeof DICTIONARY_STRING_FIELDS)[number]]: ReturnType<typeof createDictEncodeState>;
-};
-type NumberColumns = {
-  [Field in (typeof NUMBER_FIELDS)[number]]: number[];
-};
-type SparseStringColumns = {
-  [Field in (typeof NULLABLE_STRING_FIELDS)[number]]: {
-    rowIndices: number[];
-    values: string[];
-  };
-};
-type OffsetStringArrayColumns = {
-  [Field in (typeof STRING_ARRAY_FIELDS)[number]]: ReturnType<typeof createOffsetEncodeState>;
-};
-type PackedFindingColumns = PlainColumns &
-  DictionaryColumns &
-  NumberColumns &
-  SparseStringColumns &
-  OffsetStringArrayColumns;
 const EMPTY_PACKED_COLUMNS = Object.fromEntries(
   Object.values(FINDING_ROW_FIELD_GROUPS)
     .flat()
