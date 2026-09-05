@@ -2,31 +2,58 @@ import { create } from "@bufbuild/protobuf";
 import type { DictColumn } from "./gen/findings/v1/findings_pb.js";
 import { DictColumnSchema } from "./gen/findings/v1/findings_pb.js";
 
+export type DictEncodeState = {
+  dictionary: string[];
+  indices: number[];
+  indexByValue: Map<string, number>;
+};
+
+export function createDictEncodeState(rowCount: number): DictEncodeState {
+  return {
+    dictionary: [],
+    indices: new Array<number>(rowCount),
+    indexByValue: new Map<string, number>(),
+  };
+}
+
+export function internDictValue(state: DictEncodeState, value: string, position: number): void {
+  let index = state.indexByValue.get(value);
+  if (index === undefined) {
+    index = state.dictionary.length;
+    state.dictionary.push(value);
+    state.indexByValue.set(value, index);
+  }
+  state.indices[position] = index;
+}
+
 /**
  * Encode a string column with dictionary compression for one block.
  * Indices are into the returned dictionary (self-contained block).
  */
 export function encodeDictColumn(values: readonly string[]): DictColumn {
-  const dictionary: string[] = [];
-  const indexByValue = new Map<string, number>();
-  const indices = new Array<number>(values.length);
-
+  const state = createDictEncodeState(values.length);
   for (let position = 0; position < values.length; position++) {
-    // biome-ignore lint/style/noNonNullAssertion: position is bounded by values.length.
-    const value = values[position]!;
-    let index = indexByValue.get(value);
-    if (index === undefined) {
-      index = dictionary.length;
-      dictionary.push(value);
-      indexByValue.set(value, index);
-    }
-    indices[position] = index;
+    internDictValue(state, values[position] ?? "", position);
   }
-
   return create(DictColumnSchema, {
-    dictionary,
-    indices,
+    dictionary: state.dictionary,
+    indices: state.indices,
   });
+}
+
+/**
+ * Intern each block-local dictionary entry once.
+ * `remap[i]` is the destination id for `dictionary[i]`.
+ */
+export function internDictEntries(
+  dictionary: readonly string[],
+  intern: (value: string) => number,
+): number[] {
+  const remap = new Array<number>(dictionary.length);
+  for (let position = 0; position < dictionary.length; position++) {
+    remap[position] = intern(dictionary[position] ?? "");
+  }
+  return remap;
 }
 
 /** Decode a DictColumn back to a dense string array (one entry per row). */

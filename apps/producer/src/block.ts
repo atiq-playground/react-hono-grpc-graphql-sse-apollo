@@ -3,11 +3,12 @@
  */
 import { create } from "@bufbuild/protobuf";
 import {
-  encodeDictColumn,
-  encodeOffsetStringArrays,
+  appendOffsetRow,
+  createDictEncodeState,
+  createOffsetEncodeState,
   type FindingBlock,
   FindingBlockSchema,
-  SparseStringColumnSchema,
+  internDictValue,
 } from "@repo/proto";
 
 export type FindingRow = {
@@ -47,87 +48,103 @@ export function rowsToFindingBlock(
   datasetVersion: string,
 ): FindingBlock {
   const rowCount = rows.length;
-  const block = create(FindingBlockSchema, {
-    sequence,
-    datasetVersion,
-    rowCount,
-    group: new Array<string>(rowCount),
-    repo: new Array<string>(rowCount),
-    image: new Array<string>(rowCount),
-    cve: new Array<string>(rowCount),
-    packageName: new Array<string>(rowCount),
-    packageVersion: new Array<string>(rowCount),
-    path: new Array<string>(rowCount),
-    cvss: new Array<number>(rowCount),
-    description: new Array<string>(rowCount),
-    cause: new Array<string>(rowCount),
-    exploit: new Array<string>(rowCount),
-    fixDate: new Array<string>(rowCount),
-    published: new Array<string>(rowCount),
-    layerTime: new Array<string>(rowCount),
-    link: new Array<string>(rowCount),
-    owner: new Array<string>(rowCount),
-    vecStr: new Array<string>(rowCount),
-  });
-  
-  const severity = new Array<string>(rowCount);
-  const packageType = new Array<string>(rowCount);
-  const status = new Array<string>(rowCount);
-  const advisoryType = new Array<string>(rowCount);
-  const buildType = new Array<string>(rowCount);
-  const type = new Array<string>(rowCount);
-  const riskFactors = new Array<string[]>(rowCount);
-  const applicableRules = new Array<string[]>(rowCount);
-  const kaiIndices: number[] = [];
+  const group = new Array<string>(rowCount);
+  const repo = new Array<string>(rowCount);
+  const image = new Array<string>(rowCount);
+  const cve = new Array<string>(rowCount);
+  const packageName = new Array<string>(rowCount);
+  const packageVersion = new Array<string>(rowCount);
+  const path = new Array<string>(rowCount);
+  const cvss = new Array<number>(rowCount);
+  const description = new Array<string>(rowCount);
+  const cause = new Array<string>(rowCount);
+  const exploit = new Array<string>(rowCount);
+  const fixDate = new Array<string>(rowCount);
+  const published = new Array<string>(rowCount);
+  const layerTime = new Array<string>(rowCount);
+  const link = new Array<string>(rowCount);
+  const owner = new Array<string>(rowCount);
+  const vecStr = new Array<string>(rowCount);
+
+  const severity = createDictEncodeState(rowCount);
+  const packageType = createDictEncodeState(rowCount);
+  const status = createDictEncodeState(rowCount);
+  const advisoryType = createDictEncodeState(rowCount);
+  const buildType = createDictEncodeState(rowCount);
+  const type = createDictEncodeState(rowCount);
+  const riskFactors = createOffsetEncodeState(rowCount);
+  const applicableRules = createOffsetEncodeState(rowCount);
+  const kaiRowIndices: number[] = [];
   const kaiValues: string[] = [];
 
   for (let index = 0; index < rowCount; index++) {
-    // biome-ignore lint/style/noNonNullAssertion: index is bounded by rowCount.
-    const row = rows[index]!;
-    block.group[index] = row.group;
-    block.repo[index] = row.repo;
-    block.image[index] = row.image;
-    block.cve[index] = row.cve;
-    block.packageName[index] = row.packageName;
-    block.packageVersion[index] = row.packageVersion;
-    block.path[index] = row.path;
-    block.cvss[index] = row.cvss;
-    block.description[index] = row.description;
-    block.cause[index] = row.cause;
-    block.exploit[index] = row.exploit;
-    block.fixDate[index] = row.fixDate;
-    block.published[index] = row.published;
-    block.layerTime[index] = row.layerTime;
-    block.link[index] = row.link;
-    block.owner[index] = row.owner;
-    block.vecStr[index] = row.vecStr;
-    severity[index] = row.severity;
-    packageType[index] = row.packageType;
-    status[index] = row.status;
-    advisoryType[index] = row.advisoryType;
-    buildType[index] = row.buildType;
-    type[index] = row.type;
-    riskFactors[index] = row.riskFactors ?? [];
-    applicableRules[index] = row.applicableRules ?? [];
+    const row = rows[index];
+    if (row === undefined) {
+      throw new Error(`rowsToFindingBlock: missing row at ${index}`);
+    }
+
+    group[index] = row.group;
+    repo[index] = row.repo;
+    image[index] = row.image;
+    cve[index] = row.cve;
+    packageName[index] = row.packageName;
+    packageVersion[index] = row.packageVersion;
+    path[index] = row.path;
+    cvss[index] = row.cvss;
+    description[index] = row.description;
+    cause[index] = row.cause;
+    exploit[index] = row.exploit;
+    fixDate[index] = row.fixDate;
+    published[index] = row.published;
+    layerTime[index] = row.layerTime;
+    link[index] = row.link;
+    owner[index] = row.owner;
+    vecStr[index] = row.vecStr;
+
+    internDictValue(severity, row.severity, index);
+    internDictValue(packageType, row.packageType, index);
+    internDictValue(status, row.status, index);
+    internDictValue(advisoryType, row.advisoryType, index);
+    internDictValue(buildType, row.buildType, index);
+    internDictValue(type, row.type, index);
+    appendOffsetRow(riskFactors, row.riskFactors ?? [], index);
+    appendOffsetRow(applicableRules, row.applicableRules ?? [], index);
 
     if (row.kaiStatus != null) {
-      kaiIndices.push(index);
+      kaiRowIndices.push(index);
       kaiValues.push(row.kaiStatus);
     }
   }
 
-  block.severity = encodeDictColumn(severity);
-  block.packageType = encodeDictColumn(packageType);
-  block.status = encodeDictColumn(status);
-  block.advisoryType = encodeDictColumn(advisoryType);
-  block.buildType = encodeDictColumn(buildType);
-  block.type = encodeDictColumn(type);
-  block.kaiStatus = create(SparseStringColumnSchema, {
-    rowIndices: kaiIndices,
-    values: kaiValues,
+  return create(FindingBlockSchema, {
+    sequence,
+    datasetVersion,
+    rowCount,
+    group,
+    repo,
+    image,
+    cve,
+    packageName,
+    packageVersion,
+    path,
+    cvss,
+    description,
+    cause,
+    exploit,
+    fixDate,
+    published,
+    layerTime,
+    link,
+    owner,
+    vecStr,
+    severity: { dictionary: severity.dictionary, indices: severity.indices },
+    packageType: { dictionary: packageType.dictionary, indices: packageType.indices },
+    status: { dictionary: status.dictionary, indices: status.indices },
+    advisoryType: { dictionary: advisoryType.dictionary, indices: advisoryType.indices },
+    buildType: { dictionary: buildType.dictionary, indices: buildType.indices },
+    type: { dictionary: type.dictionary, indices: type.indices },
+    kaiStatus: { rowIndices: kaiRowIndices, values: kaiValues },
+    riskFactors: { values: riskFactors.values, offsets: riskFactors.offsets },
+    applicableRules: { values: applicableRules.values, offsets: applicableRules.offsets },
   });
-  block.riskFactors = encodeOffsetStringArrays(riskFactors);
-  block.applicableRules = encodeOffsetStringArrays(applicableRules);
-
-  return block;
 }

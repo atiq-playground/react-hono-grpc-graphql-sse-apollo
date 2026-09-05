@@ -45,28 +45,6 @@ function postStatus(
   });
 }
 
-function decodeDict(
-  column: { dictionary: string[]; indices: number[] } | undefined,
-  rowCount: number,
-): string[] {
-  if (!column) return Array.from({ length: rowCount }, () => "");
-  return column.indices.map((idx) => column.dictionary[idx] ?? "");
-}
-
-function sparseKai(
-  sparse: { rowIndices: number[]; values: string[] } | undefined,
-  rowCount: number,
-): Array<string | null> {
-  const out: Array<string | null> = Array.from({ length: rowCount }, () => null);
-  if (!sparse) return out;
-  for (let i = 0; i < sparse.rowIndices.length; i++) {
-    const row = sparse.rowIndices[i];
-    if (row === undefined) continue;
-    out[row] = sparse.values[i] ?? null;
-  }
-  return out;
-}
-
 function handleBlock(data: string, eventId: string | null): void {
   let bytes: Uint8Array;
   try {
@@ -92,21 +70,7 @@ function handleBlock(data: string, eventId: string | null): void {
   // Optional SSE envelope trace (T14): ignore unknown fields; preserve across boundary via status.
   void eventId;
 
-  const n = block.rowCount;
-  index.appendBlock({
-    group: [...block.group],
-    repo: [...block.repo],
-    image: [...block.image],
-    cve: [...block.cve],
-    severity: decodeDict(block.severity, n),
-    packageName: [...block.packageName],
-    packageVersion: [...block.packageVersion],
-    packageType: decodeDict(block.packageType, n),
-    status: decodeDict(block.status, n),
-    advisoryType: decodeDict(block.advisoryType, n),
-    kaiStatus: sparseKai(block.kaiStatus, n),
-    cvss: [...block.cvss],
-  });
+  index.appendBlock(block);
 
   const now = performance.now();
   const complete = totalExpected > 0 && index.length >= totalExpected;

@@ -2,10 +2,13 @@
  * Compact columnar index owned by the query worker (T08/T09).
  * Low-cardinality columns store dictionary indices (Uint32Array), not per-row strings.
  */
+import { type DictColumn, internDictEntries, type SparseStringColumn } from "@repo/proto";
 
 export class StringDictionary {
   readonly values: string[] = [];
   private readonly indexByValue = new Map<string, number>();
+  /** UTF-16 code units × 2, matching estimateBytes. */
+  byteLength = 0;
 
   intern(value: string): number {
     const existing = this.indexByValue.get(value);
@@ -13,6 +16,7 @@ export class StringDictionary {
     const id = this.values.length;
     this.values.push(value);
     this.indexByValue.set(value, id);
+    this.byteLength += value.length * 2;
     return id;
   }
 
@@ -55,6 +59,9 @@ export class ColumnarIndex {
 
   cvss = new Float64Array(0);
 
+  /** Running UTF-16×2 estimate of high-cardinality string columns. */
+  private highCardBytes = 0;
+
   private ensure(extra: number): void {
     const needed = this.length + extra;
     if (needed <= this.capacity) return;
@@ -94,37 +101,66 @@ export class ColumnarIndex {
   }
 
   appendBlock(cols: {
-    group: string[];
-    repo: string[];
-    image: string[];
-    cve: string[];
-    severity: string[];
-    packageName: string[];
-    packageVersion: string[];
-    packageType: string[];
-    status: string[];
-    advisoryType: string[];
-    kaiStatus: Array<string | null>;
-    cvss: number[];
+    group: readonly string[];
+    repo: readonly string[];
+    image: readonly string[];
+    cve: readonly string[];
+    packageName: readonly string[];
+    packageVersion: readonly string[];
+    severity?: Pick<DictColumn, "dictionary" | "indices">;
+    packageType?: Pick<DictColumn, "dictionary" | "indices">;
+    status?: Pick<DictColumn, "dictionary" | "indices">;
+    advisoryType?: Pick<DictColumn, "dictionary" | "indices">;
+    kaiStatus?: Pick<SparseStringColumn, "rowIndices" | "values">;
+    cvss: readonly number[];
+    rowCount?: number;
   }): void {
-    const n = cols.group.length;
+    const n = cols.rowCount ?? cols.group.length;
     this.ensure(n);
+    const base = this.length;
+    const severity = remapBlockDict(cols.severity, this.severityDict);
+    const packageType = remapBlockDict(cols.packageType, this.packageTypeDict);
+    const status = remapBlockDict(cols.status, this.statusDict);
+    const advisoryType = remapBlockDict(cols.advisoryType, this.advisoryTypeDict);
+
     for (let i = 0; i < n; i++) {
-      const at = this.length + i;
-      this.group[at] = cols.group[i] ?? "";
-      this.repo[at] = cols.repo[i] ?? "";
-      this.image[at] = cols.image[i] ?? "";
-      this.cve[at] = cols.cve[i] ?? "";
-      this.packageName[at] = cols.packageName[i] ?? "";
-      this.packageVersion[at] = cols.packageVersion[i] ?? "";
-      this.severityIdx[at] = this.severityDict.intern(cols.severity[i] ?? "");
-      this.packageTypeIdx[at] = this.packageTypeDict.intern(cols.packageType[i] ?? "");
-      this.statusIdx[at] = this.statusDict.intern(cols.status[i] ?? "");
-      this.advisoryTypeIdx[at] = this.advisoryTypeDict.intern(cols.advisoryType[i] ?? "");
-      const kai = cols.kaiStatus[i];
-      this.kaiStatusIdx[at] =
-        kai === null || kai === undefined ? -1 : this.kaiStatusDict.intern(kai);
+      const at = base + i;
+      const group = cols.group[i] ?? "";
+      const repo = cols.repo[i] ?? "";
+      const image = cols.image[i] ?? "";
+      const cve = cols.cve[i] ?? "";
+      const packageName = cols.packageName[i] ?? "";
+      const packageVersion = cols.packageVersion[i] ?? "";
+      this.group[at] = group;
+      this.repo[at] = repo;
+      this.image[at] = image;
+      this.cve[at] = cve;
+      this.packageName[at] = packageName;
+      this.packageVersion[at] = packageVersion;
+      this.highCardBytes +=
+        (group.length +
+          repo.length +
+          image.length +
+          cve.length +
+          packageName.length +
+          packageVersion.length) *
+        2;
+      this.severityIdx[at] = dictIndexAt(severity, i, this.severityDict);
+      this.packageTypeIdx[at] = dictIndexAt(packageType, i, this.packageTypeDict);
+      this.statusIdx[at] = dictIndexAt(status, i, this.statusDict);
+      this.advisoryTypeIdx[at] = dictIndexAt(advisoryType, i, this.advisoryTypeDict);
+      this.kaiStatusIdx[at] = -1;
       this.cvss[at] = cols.cvss[i] ?? 0;
+    }
+
+    const kai = cols.kaiStatus;
+    if (kai) {
+      for (let i = 0; i < kai.rowIndices.length; i++) {
+        const row = kai.rowIndices[i];
+        const value = kai.values[i];
+        if (row === undefined || row < 0 || row >= n || value == null) continue;
+        this.kaiStatusIdx[base + row] = this.kaiStatusDict.intern(value);
+      }
     }
     this.length += n;
   }
@@ -145,26 +181,39 @@ export class ColumnarIndex {
 
   /** Approximate retained bytes for the index (excludes V8 string overhead for high-card columns). */
   estimateBytes(): number {
-    const u32 = this.length * 4;
-    const f64 = this.length * 8;
+    const typed = this.length * (4 * 5 + 8);
     const dictBytes =
-      (this.severityDict.values.join("").length +
-        this.packageTypeDict.values.join("").length +
-        this.statusDict.values.join("").length +
-        this.advisoryTypeDict.values.join("").length +
-        this.kaiStatusDict.values.join("").length) *
-      2;
-    // High-card strings roughly counted by joined length (underestimate of true heap).
-    const highCard =
-      (this.group.join("").length +
-        this.repo.join("").length +
-        this.image.join("").length +
-        this.cve.join("").length +
-        this.packageName.join("").length +
-        this.packageVersion.join("").length) *
-      2;
-    return u32 * 5 + f64 + dictBytes + highCard;
+      this.severityDict.byteLength +
+      this.packageTypeDict.byteLength +
+      this.statusDict.byteLength +
+      this.advisoryTypeDict.byteLength +
+      this.kaiStatusDict.byteLength;
+    return typed + dictBytes + this.highCardBytes;
   }
+}
+
+type BlockDictRemap = {
+  remap: number[];
+  indices: readonly number[] | undefined;
+};
+
+function remapBlockDict(
+  column: Pick<DictColumn, "dictionary" | "indices"> | undefined,
+  dict: StringDictionary,
+): BlockDictRemap {
+  if (!column) {
+    return { remap: [dict.intern("")], indices: undefined };
+  }
+  return {
+    remap: internDictEntries(column.dictionary, (value) => dict.intern(value)),
+    indices: column.indices,
+  };
+}
+
+function dictIndexAt(mapped: BlockDictRemap, row: number, dict: StringDictionary): number {
+  if (!mapped.indices) return mapped.remap[0] ?? dict.intern("");
+  const id = mapped.remap[mapped.indices[row] ?? -1];
+  return id ?? dict.intern("");
 }
 
 export type QueryArgs = {
@@ -182,12 +231,39 @@ function matchesAnalysis(kai: string | null, mode: QueryArgs["analysisMode"]): b
   return kai !== "ai-invalid-norisk";
 }
 
+/**
+ * Preserve concatenated-haystack semantics: a needle with spaces can span the
+ * `cve packageName image repo` joins; a needle without spaces cannot, so per-field
+ * includes is equivalent and avoids allocating the joined string.
+ */
+function rowMatchesSearch(
+  index: ColumnarIndex,
+  row: number,
+  search: string,
+  searchHasSpace: boolean,
+): boolean {
+  const cve = index.cve[row] ?? "";
+  const packageName = index.packageName[row] ?? "";
+  const image = index.image[row] ?? "";
+  const repo = index.repo[row] ?? "";
+  if (!searchHasSpace) {
+    return (
+      cve.toLowerCase().includes(search) ||
+      packageName.toLowerCase().includes(search) ||
+      image.toLowerCase().includes(search) ||
+      repo.toLowerCase().includes(search)
+    );
+  }
+  return `${cve} ${packageName} ${image} ${repo}`.toLowerCase().includes(search);
+}
+
 /** Build a Result Set permutation without mutating underlying columns. */
 export function buildResultSet(
   index: ColumnarIndex,
   args: Omit<QueryArgs, "offset" | "limit">,
 ): number[] {
   const search = args.search.trim().toLowerCase();
+  const searchHasSpace = search.includes(" ");
   const matched: number[] = [];
 
   const severityFilter = args.filters.severity;
@@ -231,11 +307,7 @@ export function buildResultSet(
     if (groupFilter?.length && !groupFilter.includes(index.group[i] ?? "")) continue;
     if (repoFilter?.length && !repoFilter.includes(index.repo[i] ?? "")) continue;
 
-    if (search) {
-      const hay =
-        `${index.cve[i]} ${index.packageName[i]} ${index.image[i]} ${index.repo[i]}`.toLowerCase();
-      if (!hay.includes(search)) continue;
-    }
+    if (search && !rowMatchesSearch(index, i, search, searchHasSpace)) continue;
 
     matched.push(i);
   }

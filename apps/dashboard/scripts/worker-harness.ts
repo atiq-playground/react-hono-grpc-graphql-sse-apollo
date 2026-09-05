@@ -1,10 +1,23 @@
 /**
  * Offline harness for T08/T09 columnar index + query (no Docker / SSE required).
  */
+import { encodeDictColumn } from "@repo/proto";
 import { ColumnarIndex, exportCsvChunks, queryIndex, suggest } from "../src/query-worker/index.ts";
 
 function assert(cond: unknown, msg: string): asserts cond {
   if (!cond) throw new Error(msg);
+}
+
+function sparseKai(values: Array<string | null>): { rowIndices: number[]; values: string[] } {
+  const rowIndices: number[] = [];
+  const present: string[] = [];
+  for (let i = 0; i < values.length; i++) {
+    const value = values[i];
+    if (value == null) continue;
+    rowIndices.push(i);
+    present.push(value);
+  }
+  return { rowIndices, values: present };
 }
 
 const index = new ColumnarIndex();
@@ -14,17 +27,18 @@ index.appendBlock({
   repo: Array.from({ length: N }, (_, i) => `r${i % 20}`),
   image: Array.from({ length: N }, (_, i) => `img${i % 30}`),
   cve: Array.from({ length: N }, (_, i) => `CVE-2024-${1000 + (i % 200)}`),
-  severity: Array.from(
-    { length: N },
-    (_, i) => ["low", "medium", "high", "critical"][i % 4] ?? "low",
+  severity: encodeDictColumn(
+    Array.from({ length: N }, (_, i) => ["low", "medium", "high", "critical"][i % 4] ?? "low"),
   ),
   packageName: Array.from({ length: N }, (_, i) => `pkg-${i % 50}`),
   packageVersion: Array.from({ length: N }, () => "1.0.0"),
-  packageType: Array.from({ length: N }, (_, i) => (i % 2 === 0 ? "npm" : "deb")),
-  status: Array.from({ length: N }, () => "open"),
-  advisoryType: Array.from({ length: N }, () => "nvd"),
-  kaiStatus: Array.from({ length: N }, (_, i) =>
-    i % 17 === 0 ? "invalid - norisk" : i % 19 === 0 ? "ai-invalid-norisk" : null,
+  packageType: encodeDictColumn(Array.from({ length: N }, (_, i) => (i % 2 === 0 ? "npm" : "deb"))),
+  status: encodeDictColumn(Array.from({ length: N }, () => "open")),
+  advisoryType: encodeDictColumn(Array.from({ length: N }, () => "nvd")),
+  kaiStatus: sparseKai(
+    Array.from({ length: N }, (_, i) =>
+      i % 17 === 0 ? "invalid - norisk" : i % 19 === 0 ? "ai-invalid-norisk" : null,
+    ),
   ),
   cvss: Array.from({ length: N }, (_, i) => (i % 10) / 2),
 });
@@ -32,6 +46,8 @@ index.appendBlock({
 assert(index.length === N, "length");
 assert(index.severityDict.values.length <= 4, "severity dict compact");
 assert(index.severityIdx instanceof Uint32Array, "typed severity indices");
+assert(index.kaiStatusAt(0) === "invalid - norisk", "sparse kai present");
+assert(index.kaiStatusAt(1) === null, "sparse kai absent");
 
 const beforeSort = index.cve.slice(0, 10);
 const page = queryIndex(index, {

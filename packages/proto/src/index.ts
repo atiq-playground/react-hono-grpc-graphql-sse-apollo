@@ -1,7 +1,11 @@
+export type { DictEncodeState } from "./dict.js";
 export {
   assertDictRoundTrip,
+  createDictEncodeState,
   decodeDictColumn,
   encodeDictColumn,
+  internDictEntries,
+  internDictValue,
 } from "./dict.js";
 export type {
   DictColumn,
@@ -19,7 +23,10 @@ export {
   SparseStringColumnSchema,
   StreamRequestSchema,
 } from "./gen/findings/v1/findings_pb.js";
+export type { OffsetEncodeState } from "./offsets.js";
 export {
+  appendOffsetRow,
+  createOffsetEncodeState,
   decodeOffsetStringArrays,
   encodeOffsetStringArrays,
 } from "./offsets.js";

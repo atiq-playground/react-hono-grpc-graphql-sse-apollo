@@ -11,10 +11,10 @@
  */
 
 import http2 from "node:http2";
-import { fromBinary, toBinary } from "@bufbuild/protobuf";
+import { toBinary } from "@bufbuild/protobuf";
 import { createClient } from "@clickhouse/client";
 import { connectNodeAdapter } from "@connectrpc/connect-node";
-import { FindingBlockSchema, FindingsService } from "@repo/proto";
+import { type FindingBlock, FindingBlockSchema, FindingsService } from "@repo/proto";
 import Redis from "ioredis";
 import { BLOCK_SIZE, type FindingRow, rowsToFindingBlock } from "./block.js";
 import { initProducerSentry } from "./sentry.js";
@@ -67,6 +67,7 @@ function parseRow(raw: Record<string, unknown>): FindingRow {
 async function* streamBlocks(afterSequence: bigint): AsyncGenerator<{
   sequence: bigint;
   binary: Uint8Array;
+  block: FindingBlock;
 }> {
   const clickhouse = createClient({
     url: env("CLICKHOUSE_URL", "http://127.0.0.1:8123"),
@@ -99,6 +100,7 @@ async function* streamBlocks(afterSequence: bigint): AsyncGenerator<{
       yield {
         sequence,
         binary: toBinary(FindingBlockSchema, block),
+        block,
       };
     };
 
@@ -135,7 +137,7 @@ async function main(): Promise<void> {
 
             const redis = new Redis(REDIS_URL, { maxRetriesPerRequest: null });
             try {
-              for await (const { sequence, binary } of streamBlocks(req.afterSequence)) {
+              for await (const { sequence, binary, block } of streamBlocks(req.afterSequence)) {
                 // Backpressure: await Redis write before yielding the next block.
                 await redis.xadd(
                   REDIS_STREAM,
@@ -148,7 +150,7 @@ async function main(): Promise<void> {
                     ? (["sentryTrace", sentryTrace, "baggage", baggage ?? ""] as const)
                     : []),
                 );
-                yield fromBinary(FindingBlockSchema, binary);
+                yield block;
               }
             } finally {
               redis.disconnect();
