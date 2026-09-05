@@ -6,7 +6,7 @@ import { useSearchParams } from "react-router";
 import { useStore } from "zustand";
 
 import { useDashboardStore } from "../app/dashboard-context";
-import { PageToolbar } from "../app/page-toolbar";
+import { PageHeader } from "../app/page-header";
 import { exploreStateToSearch, parseExploreSearch } from "../app/url-state";
 import { useRefreshPendingUpdates } from "../features/live/use-dataset-events";
 import OverviewCharts from "../features/overview/OverviewCharts";
@@ -55,27 +55,19 @@ export function OverviewPage() {
 
   return (
     <section aria-labelledby="overview-heading">
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-          ClickHouse aggregate view
-        </p>
-        <h1 id="overview-heading" className="mt-1 text-3xl font-semibold tracking-tight">
-          Vulnerability overview
-        </h1>
-        <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-          Pre-aggregated exposure, remediation, and publication signals. No page-level findings are
-          scanned or summarized in the browser.
-        </p>
-      </div>
-
-      <PageToolbar />
-
-      <OverviewToolbar
-        state={state}
-        pendingUpdates={pendingUpdates}
-        onStateChange={(nextState) => setParams(exploreStateToSearch(nextState))}
-        onRefresh={refreshPendingUpdates}
-      />
+      <PageHeader
+        headingId="overview-heading"
+        eyebrow="ClickHouse aggregate view"
+        title="Vulnerability overview"
+        description="Pre-aggregated exposure, remediation, and publication signals. No page-level findings are scanned or summarized in the browser."
+      >
+        <OverviewToolbar
+          state={state}
+          pendingUpdates={pendingUpdates}
+          onStateChange={(nextState) => setParams(exploreStateToSearch(nextState))}
+          onRefresh={refreshPendingUpdates}
+        />
+      </PageHeader>
 
       {loading && !overview && <OverviewLoading />}
 

@@ -5,7 +5,7 @@ import { useSearchParams } from "react-router";
 import { useStore } from "zustand";
 
 import { useDashboardStore } from "../app/dashboard-context";
-import { PageToolbar } from "../app/page-toolbar";
+import { PageHeader } from "../app/page-header";
 import { exploreStateToSearch, parseExploreSearch } from "../app/url-state";
 import { ExploreFilters } from "../features/explore/ExploreFilters";
 import {
@@ -63,44 +63,37 @@ export function ExplorePage() {
 
   return (
     <section aria-labelledby="explore-heading" className="space-y-5">
-      <header>
-        <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-          ClickHouse-backed exploration
-        </p>
-        <h1 id="explore-heading" className="mt-1 text-2xl font-semibold">
-          Vulnerability findings
-        </h1>
-        <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-          Search and refine the result set without loading the full dataset into this browser.
-        </p>
-      </header>
-
-      <PageToolbar />
-
-      {showRefresh && (
-        <div className="flex flex-wrap items-center justify-end gap-3">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => void handleRefresh()}
-            disabled={isRefreshing}
-          >
-            {isRefreshing && (
-              <span
-                className="size-2 animate-pulse rounded-full bg-foreground"
-                aria-hidden="true"
-              />
-            )}
-            {pendingUpdates.toLocaleString()} updates — Refresh
-          </Button>
-        </div>
-      )}
-      {refreshError && (
-        <p className="text-sm text-destructive" role="status">
-          {refreshError}
-        </p>
-      )}
+      <PageHeader
+        headingId="explore-heading"
+        eyebrow="ClickHouse-backed exploration"
+        title="Vulnerability findings"
+        description="Search and refine the result set without loading the full dataset into this browser."
+      >
+        {showRefresh && (
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => void handleRefresh()}
+              disabled={isRefreshing}
+            >
+              {isRefreshing && (
+                <span
+                  className="size-2 animate-pulse rounded-full bg-foreground"
+                  aria-hidden="true"
+                />
+              )}
+              {pendingUpdates.toLocaleString()} updates — Refresh
+            </Button>
+          </div>
+        )}
+        {refreshError && (
+          <p className="text-sm text-destructive" role="status">
+            {refreshError}
+          </p>
+        )}
+      </PageHeader>
 
       <div className="rounded-lg border bg-card p-3">
         <ExploreFilters

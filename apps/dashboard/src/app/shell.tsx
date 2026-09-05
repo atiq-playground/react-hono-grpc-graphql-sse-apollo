@@ -1,7 +1,7 @@
 import { Button } from "@repo/ui/components/ui/button";
 import { cn } from "@repo/ui/lib/utils";
 import { MoonIcon, SunIcon } from "lucide-react";
-import { NavLink, Outlet } from "react-router";
+import { NavLink, Outlet, useLocation } from "react-router";
 import { DatasetEventsProvider } from "../features/live/dataset-events-provider";
 import { useTheme } from "./dashboard-context";
 import { AppFooter } from "./footer";
@@ -29,6 +29,16 @@ function intentPrefetchProps(loader: RouteLoader) {
     onFocus: prefetch,
     onMouseEnter: prefetch,
   };
+}
+
+/** Fade in page content on pathname change; shell chrome stays put. */
+function RouteOutlet() {
+  const { pathname } = useLocation();
+  return (
+    <div key={pathname} className="route-fade-in">
+      <Outlet />
+    </div>
+  );
 }
 
 function GitHubIcon({ className }: { className?: string }) {
@@ -123,7 +133,7 @@ export function AppShell() {
         </header>
         <main className="layout-container flex-1 pb-4 pt-2">
           <TechStackTags />
-          <Outlet />
+          <RouteOutlet />
         </main>
         <AppFooter />
       </div>

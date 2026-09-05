@@ -117,7 +117,7 @@ export function PageToolbar() {
 
   return (
     <div
-      className="mb-4 flex flex-wrap items-end gap-3 border-b border-border/70 pb-4"
+      className="mt-6 mb-4 flex flex-wrap items-end gap-3"
       role="toolbar"
       aria-label="Exploration controls"
     >
