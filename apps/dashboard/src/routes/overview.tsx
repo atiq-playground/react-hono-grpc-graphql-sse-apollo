@@ -6,6 +6,7 @@ import { useSearchParams } from "react-router";
 import { useStore } from "zustand";
 
 import { useDashboardStore } from "../app/dashboard-context";
+import { PageToolbar } from "../app/page-toolbar";
 import { exploreStateToSearch, parseExploreSearch } from "../app/url-state";
 import { useRefreshPendingUpdates } from "../features/live/use-dataset-events";
 import OverviewCharts from "../features/overview/OverviewCharts";
@@ -66,6 +67,8 @@ export function OverviewPage() {
           scanned or summarized in the browser.
         </p>
       </div>
+
+      <PageToolbar />
 
       <OverviewToolbar
         state={state}

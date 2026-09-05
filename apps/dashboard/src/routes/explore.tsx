@@ -5,6 +5,7 @@ import { useSearchParams } from "react-router";
 import { useStore } from "zustand";
 
 import { useDashboardStore } from "../app/dashboard-context";
+import { PageToolbar } from "../app/page-toolbar";
 import { exploreStateToSearch, parseExploreSearch } from "../app/url-state";
 import { ExploreFilters } from "../features/explore/ExploreFilters";
 import {
@@ -73,6 +74,8 @@ export function ExplorePage() {
           Search and refine the result set without loading the full dataset into this browser.
         </p>
       </header>
+
+      <PageToolbar />
 
       {showRefresh && (
         <div className="flex flex-wrap items-center justify-end gap-3">

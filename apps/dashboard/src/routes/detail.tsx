@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router";
 import { useStore } from "zustand";
 
 import { useDashboardStore } from "../app/dashboard-context";
+import { PageToolbar } from "../app/page-toolbar";
 import { isFindingId, useFinding } from "../features/detail/use-finding";
 import {
   FindingDetailLoading,
@@ -71,6 +72,8 @@ export function DetailPage() {
           <FindingLiveStatus connection={connection} event={liveEvent} />
         </div>
       </header>
+
+      <PageToolbar />
 
       {!isValidId && (
         <FindingDetailState

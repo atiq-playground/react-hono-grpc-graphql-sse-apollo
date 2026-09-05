@@ -5,7 +5,6 @@ import { NavLink, Outlet } from "react-router";
 import { DatasetEventsProvider } from "../features/live/dataset-events-provider";
 import { useTheme } from "./dashboard-context";
 import { AppFooter } from "./footer";
-import { PageToolbar } from "./page-toolbar";
 import {
   loadCompareRoute,
   loadExploreRoute,
@@ -123,7 +122,6 @@ export function AppShell() {
           </div>
         </header>
         <main className="layout-container flex-1 pb-4 pt-2">
-          <PageToolbar />
           <TechStackTags />
           <Outlet />
         </main>

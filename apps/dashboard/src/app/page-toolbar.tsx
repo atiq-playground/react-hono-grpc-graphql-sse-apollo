@@ -7,7 +7,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@repo/ui/components/ui/select";
-import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useSearchParams } from "react-router";
 import { useStore } from "zustand";
 
@@ -66,7 +66,6 @@ export function PageToolbar() {
   const store = useDashboardStore();
   const connection = useStore(store, (value) => value.connection);
   const onCompare = isComparePath(pathname);
-  const analysisModeHintId = useId();
 
   const exploreState = useMemo(() => parseExploreSearch(params), [params]);
   const compareState = useMemo(() => parseCompareSearch(params), [params]);
@@ -116,8 +115,6 @@ export function PageToolbar() {
     setParams(exploreStateToSearch({ ...exploreState, analysisMode: mode, after: null }));
   };
 
-  const analysisModeHint = onCompare ? "Analysis mode is chosen per side on Compare" : undefined;
-
   return (
     <div
       className="mb-4 flex flex-wrap items-end gap-3 border-b border-border/70 pb-4"
@@ -149,12 +146,7 @@ export function PageToolbar() {
             if (parsed.success) handleAnalysisModeChange(parsed.data);
           }}
         >
-          <SelectTrigger
-            id="page-toolbar-analysis-mode"
-            className="w-full"
-            aria-describedby={onCompare ? analysisModeHintId : undefined}
-            title={analysisModeHint}
-          >
+          <SelectTrigger id="page-toolbar-analysis-mode" className="w-full">
             <SelectValue />
           </SelectTrigger>
           <SelectContent align="start" className={ANALYSIS_MODE_CONTENT_CLASS}>
@@ -169,11 +161,6 @@ export function PageToolbar() {
             </SelectItem>
           </SelectContent>
         </Select>
-        {onCompare && (
-          <p id={analysisModeHintId} className="text-xs text-muted-foreground">
-            {analysisModeHint}
-          </p>
-        )}
       </div>
 
       <div className="ml-auto space-y-1">

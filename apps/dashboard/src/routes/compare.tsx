@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useSearchParams } from "react-router";
 
+import { PageToolbar } from "../app/page-toolbar";
 import { CompareForm } from "../features/compare/CompareForm";
 import { CompareResults } from "../features/compare/CompareResults";
 import { compareStateToSearch, parseCompareSearch } from "../features/compare/compare-url-state";
@@ -36,6 +37,8 @@ export function ComparePage() {
         exact <code>invalid - norisk</code>; AI Analysis excludes exact{" "}
         <code>ai-invalid-norisk</code>. Missing values stay included.
       </p>
+
+      <PageToolbar />
 
       <CompareForm
         left={state.left}
