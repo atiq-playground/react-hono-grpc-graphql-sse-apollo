@@ -27,3 +27,28 @@ export type StreamDescriptor = {
 export type SummaryQuery = { summary: Summary };
 export type FacetsQuery = { facets: Facets };
 export type StreamDescriptorQuery = { streamDescriptor: StreamDescriptor };
+
+/** Combined documents used by dashboard routes. */
+export type OverviewQuery = SummaryQuery & FacetsQuery;
+export type ExploreBootstrapQuery = StreamDescriptorQuery & FacetsQuery;
+
+export type FindingDetail = {
+  id: string;
+  group: string;
+  repo: string;
+  image: string;
+  cve: string;
+  severity: string;
+  packageName: string;
+  packageVersion: string;
+  status: string;
+  kaiStatus: string | null;
+  description: string;
+  cvss: number;
+};
+
+export type FindingDetailQuery = { finding: FindingDetail | null };
+export type FindingDetailVariables = { id: string };
+
+/** Variables type for operations with an empty variable set. */
+export type NoVariables = Record<string, never>;

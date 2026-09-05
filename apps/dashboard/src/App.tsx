@@ -1,7 +1,7 @@
 import { type ComponentType, type LazyExoticComponent, lazy, Suspense } from "react";
 import { createBrowserRouter, RouterProvider } from "react-router";
 import { AppProviders } from "./app/providers";
-import { RouteErrorBoundary } from "./app/RouteErrorBoundary";
+import { formatDetailError, RouteErrorBoundary } from "./app/RouteErrorBoundary";
 import {
   loadCompareRoute,
   loadDetailRoute,
@@ -17,7 +17,7 @@ const ExplorePage = lazy(loadExploreRoute);
 const ComparePage = lazy(loadCompareRoute);
 const DetailPage = lazy(loadDetailRoute);
 
-function RouteFallback({ label }: { label: string }) {
+function RouteFallback({ message }: { message: string }) {
   return (
     <div
       className="flex min-h-[24rem] items-center justify-center text-sm text-muted-foreground"
@@ -25,16 +25,21 @@ function RouteFallback({ label }: { label: string }) {
       aria-live="polite"
       aria-busy="true"
     >
-      Loading {label}…
+      {message}
     </div>
   );
 }
 
-function routeElement(Page: LazyExoticComponent<ComponentType>, label: string) {
+type RouteElementOptions = {
+  fallback: string;
+  formatError?: (error: unknown) => string;
+};
+
+function routeElement(Page: LazyExoticComponent<ComponentType>, options: RouteElementOptions) {
   return (
-    <RouteErrorBoundary>
+    <RouteErrorBoundary formatError={options.formatError}>
       {(retryKey) => (
-        <Suspense fallback={<RouteFallback label={label} />}>
+        <Suspense fallback={<RouteFallback message={options.fallback} />}>
           <Page key={retryKey} />
         </Suspense>
       )}
@@ -49,19 +54,22 @@ const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: routeElement(OverviewPage, "overview"),
+        element: routeElement(OverviewPage, { fallback: "Loading aggregates…" }),
       },
       {
         path: "explore",
-        element: routeElement(ExplorePage, "explore"),
+        element: routeElement(ExplorePage, { fallback: "Loading explore…" }),
       },
       {
         path: "compare",
-        element: routeElement(ComparePage, "compare"),
+        element: routeElement(ComparePage, { fallback: "Loading compare…" }),
       },
       {
         path: "finding/:id",
-        element: routeElement(DetailPage, "record detail"),
+        element: routeElement(DetailPage, {
+          fallback: "Loading…",
+          formatError: formatDetailError,
+        }),
       },
     ],
   },

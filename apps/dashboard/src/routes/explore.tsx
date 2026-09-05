@@ -1,16 +1,16 @@
-import { gql } from "@apollo/client";
-import { useQuery } from "@apollo/client/react";
+import { gql, type TypedDocumentNode } from "@apollo/client";
+import { useSuspenseQuery } from "@apollo/client/react";
 import { Button, Input } from "@repo/ui";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { useStore } from "zustand";
 import { useDashboardStore } from "../app/dashboard-context";
 import { exploreStateToSearch, parseExploreSearch } from "../app/url-state";
-import type { FacetsQuery, StreamDescriptorQuery } from "../graphql/generated";
+import type { ExploreBootstrapQuery, NoVariables } from "../graphql/generated";
 import { createQueryWorker, type QueryWorkerHandle } from "../query-worker/bridge";
 import type { PageRow } from "../state/dashboard-store";
 
-const STREAM_AND_FACETS = gql`
+const STREAM_AND_FACETS: TypedDocumentNode<ExploreBootstrapQuery, NoVariables> = gql`
   query ExploreBootstrap {
     streamDescriptor {
       datasetVersion
@@ -51,9 +51,7 @@ export function ExplorePage() {
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [rowCache, setRowCache] = useState<Map<number, PageRow>>(() => new Map());
 
-  const { data, error: gqlError } = useQuery<StreamDescriptorQuery & FacetsQuery>(
-    STREAM_AND_FACETS,
-  );
+  const { data } = useSuspenseQuery(STREAM_AND_FACETS);
 
   useEffect(() => {
     store.dispatch({
@@ -80,12 +78,12 @@ export function ExplorePage() {
   }, [store]);
 
   useEffect(() => {
-    const descriptor = data?.streamDescriptor;
+    const descriptor = data.streamDescriptor;
     const worker = workerRef.current;
-    if (!descriptor || !worker) return;
+    if (!worker) return;
     const sseUrl = `${descriptor.ssePath}?datasetVersion=${encodeURIComponent(descriptor.datasetVersion)}`;
     worker.startStream(sseUrl, descriptor.totalRecords);
-  }, [data?.streamDescriptor]);
+  }, [data.streamDescriptor]);
 
   const runQuery = useCallback(
     async (offset: number, limit: number) => {
@@ -166,9 +164,6 @@ export function ExplorePage() {
           : ` — ${recordsReceived.toLocaleString()} rows indexed`}
         . Result set: {pageTotal.toLocaleString()}.
       </p>
-      {gqlError ? (
-        <p className="text-destructive mt-2 text-sm">Gateway unavailable. Try again later.</p>
-      ) : null}
 
       <div className="mt-4 flex flex-wrap items-end gap-3">
         <label className="block text-sm" htmlFor="explore-search">
@@ -215,7 +210,7 @@ export function ExplorePage() {
             }}
           >
             <option value="">All</option>
-            {(data?.facets?.severity ?? []).map((f) => (
+            {data.facets.severity.map((f) => (
               <option key={f.value} value={f.value}>
                 {f.value} ({f.count})
               </option>
