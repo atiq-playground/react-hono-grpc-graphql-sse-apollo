@@ -122,7 +122,7 @@ After scaffolding, use this command shape:
 ```bash
 bun install
 docker compose -f docker/compose.yml up -d
-bunx nx serve dashboard
+bun dev
 bunx nx build dashboard
 bunx nx run-many -t typecheck
 bunx biome check .

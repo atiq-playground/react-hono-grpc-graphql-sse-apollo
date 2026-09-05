@@ -52,19 +52,15 @@ bunx nx run-many -t typecheck
 # 4. Format / lint
 bunx biome check .
 
-# 5. Run applications (as each Nx project becomes available)
-bunx nx serve producer    # gRPC stream from ClickHouse
-bunx nx serve gateway     # SSE + GraphQL
-bunx nx serve dashboard   # Vite React SPA
+# 5. Run infra + apps (ClickHouse/Redis, producer, gateway, dashboard)
+bun dev
 ```
 
 Package scripts may also map to the same Nx/Biome entry points (for example
-`bun run dev`, `bun run typecheck`, `bun run lint`) once the root `package.json`
-defines them.
+`bun run typecheck`, `bun run lint`) once the root `package.json` defines them.
 
-Typical local flow after the data path exists: start Compose, run
-`bunx nx run producer:ingest` (or confirm ClickHouse already has the corpus),
-then run producer and gateway, and open the dashboard.
+Typical local flow after the data path exists: when ClickHouse is empty, run
+`bunx nx run producer:ingest` once, then `bun dev` and open the dashboard.
 Verify SSE with:
 
 ```bash

@@ -9,7 +9,7 @@
     "tools/*"
   ],
   "scripts": {
-    "dev": "nx serve dashboard",
+    "dev": "bash scripts/dev.sh",
     "build": "nx build dashboard",
     "typecheck": "nx run-many -t typecheck",
     "lint": "biome check .",
