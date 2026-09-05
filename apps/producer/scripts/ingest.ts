@@ -12,6 +12,7 @@ import { type ClickHouseClient, createClient } from "@clickhouse/client";
 import { chain } from "stream-chain";
 import { parser } from "stream-json";
 import Assembler from "stream-json/Assembler.js";
+import { type FindingRow, normalizeSourceFinding } from "../src/finding-row.js";
 
 type JsonAssembler = {
   depth: number;
@@ -24,35 +25,6 @@ const AssemblerCtor = Assembler as unknown as new () => JsonAssembler;
 const RAW_PATH = process.env.INGEST_SOURCE ?? "apps/producer/data/raw/ui_demo.json";
 const BATCH_SIZE = Number(process.env.INGEST_BATCH_SIZE ?? 2_000);
 const EXPECTED_ROWS = 236_656;
-
-type FindingRow = {
-  group: string;
-  repo: string;
-  image: string;
-  cve: string;
-  severity: string;
-  packageName: string;
-  packageVersion: string;
-  packageType: string;
-  path: string;
-  status: string;
-  advisoryType: string;
-  buildType: string;
-  type: string;
-  cvss: number;
-  description: string;
-  cause: string;
-  exploit: string;
-  fixDate: string;
-  published: string;
-  layerTime: string;
-  link: string;
-  owner: string;
-  vecStr: string;
-  kaiStatus: string | null;
-  riskFactors: string[];
-  applicableRules: string[];
-};
 
 type Token = { name: string; value?: unknown };
 
@@ -68,27 +40,6 @@ function asString(value: unknown): string {
   return "";
 }
 
-function asNumber(value: unknown): number {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string" && value.trim() !== "") {
-    const n = Number(value);
-    return Number.isFinite(n) ? n : 0;
-  }
-  return 0;
-}
-
-function riskFactorKeys(value: unknown): string[] {
-  if (value === null || value === undefined) return [];
-  if (Array.isArray(value)) return value.map((v) => asString(v));
-  if (typeof value === "object") return Object.keys(value as Record<string, unknown>);
-  return [];
-}
-
-function applicableRulesList(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value.map((v) => asString(v));
-}
-
 function flattenVulnerability(
   group: string,
   repo: string,
@@ -96,37 +47,13 @@ function flattenVulnerability(
   imageBuildType: string,
   vuln: Record<string, unknown>,
 ): FindingRow {
-  const kaiRaw = vuln.kaiStatus;
-  const kaiStatus = kaiRaw === null || kaiRaw === undefined ? null : asString(kaiRaw);
-
-  return {
+  return normalizeSourceFinding({
     group,
     repo,
     image,
-    cve: asString(vuln.cve),
-    severity: asString(vuln.severity),
-    packageName: asString(vuln.packageName),
-    packageVersion: asString(vuln.packageVersion),
-    packageType: asString(vuln.packageType),
-    path: asString(vuln.path),
-    status: asString(vuln.status),
-    advisoryType: asString(vuln.advisoryType),
-    buildType: asString(vuln.buildType ?? imageBuildType),
-    type: asString(vuln.type),
-    cvss: asNumber(vuln.cvss),
-    description: asString(vuln.description),
-    cause: asString(vuln.cause),
-    exploit: asString(vuln.exploit),
-    fixDate: asString(vuln.fixDate),
-    published: asString(vuln.published),
-    layerTime: asString(vuln.layerTime),
-    link: asString(vuln.link),
-    owner: asString(vuln.owner),
-    vecStr: asString(vuln.vecStr),
-    kaiStatus,
-    riskFactors: riskFactorKeys(vuln.riskFactors),
-    applicableRules: applicableRulesList(vuln.applicableRules),
-  };
+    imageBuildType,
+    vulnerability: vuln,
+  });
 }
 
 function consumeObject(asm: JsonAssembler, token: Token): boolean {

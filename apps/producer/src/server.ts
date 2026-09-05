@@ -16,7 +16,8 @@ import { createClient } from "@clickhouse/client";
 import { connectNodeAdapter } from "@connectrpc/connect-node";
 import { type FindingBlock, FindingBlockSchema, FindingsService } from "@repo/proto";
 import Redis from "ioredis";
-import { BLOCK_SIZE, type FindingRow, rowsToFindingBlock } from "./block.js";
+import { BLOCK_SIZE, rowsToFindingBlock } from "./block.js";
+import { type FindingRow, normalizeFindingRow } from "./finding-row.js";
 import { initProducerSentry } from "./sentry.js";
 
 function env(name: string, fallback: string): string {
@@ -31,37 +32,7 @@ const GRPC_HOST = env("PRODUCER_HOST", "127.0.0.1");
 const GRPC_PORT = Number(env("PRODUCER_PORT", "50051"));
 
 function parseRow(raw: Record<string, unknown>): FindingRow {
-  const kai = raw.kaiStatus;
-  return {
-    group: String(raw.group ?? ""),
-    repo: String(raw.repo ?? ""),
-    image: String(raw.image ?? ""),
-    cve: String(raw.cve ?? ""),
-    severity: String(raw.severity ?? ""),
-    packageName: String(raw.packageName ?? ""),
-    packageVersion: String(raw.packageVersion ?? ""),
-    packageType: String(raw.packageType ?? ""),
-    path: String(raw.path ?? ""),
-    status: String(raw.status ?? ""),
-    advisoryType: String(raw.advisoryType ?? ""),
-    buildType: String(raw.buildType ?? ""),
-    type: String(raw.type ?? ""),
-    cvss: Number(raw.cvss ?? 0),
-    description: String(raw.description ?? ""),
-    cause: String(raw.cause ?? ""),
-    exploit: String(raw.exploit ?? ""),
-    fixDate: String(raw.fixDate ?? ""),
-    published: String(raw.published ?? ""),
-    layerTime: String(raw.layerTime ?? ""),
-    link: String(raw.link ?? ""),
-    owner: String(raw.owner ?? ""),
-    vecStr: String(raw.vecStr ?? ""),
-    kaiStatus: kai === null || kai === undefined ? null : String(kai),
-    riskFactors: Array.isArray(raw.riskFactors) ? raw.riskFactors.map((v) => String(v)) : [],
-    applicableRules: Array.isArray(raw.applicableRules)
-      ? raw.applicableRules.map((v) => String(v))
-      : [],
-  };
+  return normalizeFindingRow(raw);
 }
 
 async function* streamBlocks(afterSequence: bigint): AsyncGenerator<{

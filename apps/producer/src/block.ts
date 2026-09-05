@@ -10,138 +10,126 @@ import {
   FindingBlockSchema,
   internDictValue,
 } from "@repo/proto";
-
-export type FindingRow = {
-  group: string;
-  repo: string;
-  image: string;
-  cve: string;
-  severity: string;
-  packageName: string;
-  packageVersion: string;
-  packageType: string;
-  path: string;
-  status: string;
-  advisoryType: string;
-  buildType: string;
-  type: string;
-  cvss: number;
-  description: string;
-  cause: string;
-  exploit: string;
-  fixDate: string;
-  published: string;
-  layerTime: string;
-  link: string;
-  owner: string;
-  vecStr: string;
-  kaiStatus: string | null;
-  riskFactors: string[];
-  applicableRules: string[];
-};
+import {
+  CONTEXT_STRING_FIELDS,
+  DICTIONARY_STRING_FIELDS,
+  FINDING_ROW_FIELD_GROUPS,
+  type FindingRow,
+  NULLABLE_STRING_FIELDS,
+  NUMBER_FIELDS,
+  PLAIN_STRING_FIELDS,
+  STRING_ARRAY_FIELDS,
+} from "./finding-row.js";
 
 export const BLOCK_SIZE = Number(process.env.PRODUCER_BLOCK_SIZE ?? 2_048);
 
-export function rowsToFindingBlock(
-  rows: FindingRow[],
-  sequence: bigint,
-  datasetVersion: string,
-): FindingBlock {
-  const rowCount = rows.length;
-  const group = new Array<string>(rowCount);
-  const repo = new Array<string>(rowCount);
-  const image = new Array<string>(rowCount);
-  const cve = new Array<string>(rowCount);
-  const packageName = new Array<string>(rowCount);
-  const packageVersion = new Array<string>(rowCount);
-  const path = new Array<string>(rowCount);
-  const cvss = new Array<number>(rowCount);
-  const description = new Array<string>(rowCount);
-  const cause = new Array<string>(rowCount);
-  const exploit = new Array<string>(rowCount);
-  const fixDate = new Array<string>(rowCount);
-  const published = new Array<string>(rowCount);
-  const layerTime = new Array<string>(rowCount);
-  const link = new Array<string>(rowCount);
-  const owner = new Array<string>(rowCount);
-  const vecStr = new Array<string>(rowCount);
+type PlainColumnField =
+  | (typeof CONTEXT_STRING_FIELDS)[number]
+  | (typeof PLAIN_STRING_FIELDS)[number];
+type PlainColumns = { [Field in PlainColumnField]: string[] };
+type DictionaryColumns = {
+  [Field in (typeof DICTIONARY_STRING_FIELDS)[number]]: ReturnType<typeof createDictEncodeState>;
+};
+type NumberColumns = {
+  [Field in (typeof NUMBER_FIELDS)[number]]: number[];
+};
+type SparseStringColumns = {
+  [Field in (typeof NULLABLE_STRING_FIELDS)[number]]: {
+    rowIndices: number[];
+    values: string[];
+  };
+};
+type OffsetStringArrayColumns = {
+  [Field in (typeof STRING_ARRAY_FIELDS)[number]]: ReturnType<typeof createOffsetEncodeState>;
+};
+type PackedFindingColumns = PlainColumns &
+  DictionaryColumns &
+  NumberColumns &
+  SparseStringColumns &
+  OffsetStringArrayColumns;
+const EMPTY_PACKED_COLUMNS = Object.fromEntries(
+  Object.values(FINDING_ROW_FIELD_GROUPS)
+    .flat()
+    .map((field) => [field, undefined]),
+) as Partial<PackedFindingColumns>;
 
-  const severity = createDictEncodeState(rowCount);
-  const packageType = createDictEncodeState(rowCount);
-  const status = createDictEncodeState(rowCount);
-  const advisoryType = createDictEncodeState(rowCount);
-  const buildType = createDictEncodeState(rowCount);
-  const type = createDictEncodeState(rowCount);
-  const riskFactors = createOffsetEncodeState(rowCount);
-  const applicableRules = createOffsetEncodeState(rowCount);
-  const kaiRowIndices: number[] = [];
-  const kaiValues: string[] = [];
+function packPlainColumns(rows: readonly FindingRow[], columns: PackedFindingColumns): void {
+  for (const fields of [CONTEXT_STRING_FIELDS, PLAIN_STRING_FIELDS] as const) {
+    for (let fieldIndex = 0; fieldIndex < fields.length; fieldIndex++) {
+      const field = fields[fieldIndex]!;
+      const column = new Array<string>(rows.length);
+      for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+        column[rowIndex] = rows[rowIndex]![field];
+      }
+      columns[field] = column;
+    }
+  }
+}
 
-  for (let index = 0; index < rowCount; index++) {
-    const row = rows[index]!;
+function packNumberAndSparseColumns(
+  rows: readonly FindingRow[],
+  columns: PackedFindingColumns,
+): void {
+  const numberField = NUMBER_FIELDS[0];
+  const sparseField = NULLABLE_STRING_FIELDS[0];
+  const numberValues = new Array<number>(rows.length);
+  const rowIndices: number[] = [];
+  const sparseValues: string[] = [];
 
-    group[index] = row.group;
-    repo[index] = row.repo;
-    image[index] = row.image;
-    cve[index] = row.cve;
-    packageName[index] = row.packageName;
-    packageVersion[index] = row.packageVersion;
-    path[index] = row.path;
-    cvss[index] = row.cvss;
-    description[index] = row.description;
-    cause[index] = row.cause;
-    exploit[index] = row.exploit;
-    fixDate[index] = row.fixDate;
-    published[index] = row.published;
-    layerTime[index] = row.layerTime;
-    link[index] = row.link;
-    owner[index] = row.owner;
-    vecStr[index] = row.vecStr;
-
-    internDictValue(severity, row.severity, index);
-    internDictValue(packageType, row.packageType, index);
-    internDictValue(status, row.status, index);
-    internDictValue(advisoryType, row.advisoryType, index);
-    internDictValue(buildType, row.buildType, index);
-    internDictValue(type, row.type, index);
-    appendOffsetRow(riskFactors, row.riskFactors ?? [], index);
-    appendOffsetRow(applicableRules, row.applicableRules ?? [], index);
-
-    if (row.kaiStatus != null) {
-      kaiRowIndices.push(index);
-      kaiValues.push(row.kaiStatus);
+  for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+    const row = rows[rowIndex]!;
+    numberValues[rowIndex] = row[numberField];
+    const sparseValue = row[sparseField];
+    if (sparseValue !== null) {
+      rowIndices.push(rowIndex);
+      sparseValues.push(sparseValue);
     }
   }
 
+  columns[numberField] = numberValues;
+  columns[sparseField] = { rowIndices, values: sparseValues };
+}
+
+function packDictionaryColumns(rows: readonly FindingRow[], columns: PackedFindingColumns): void {
+  for (let fieldIndex = 0; fieldIndex < DICTIONARY_STRING_FIELDS.length; fieldIndex++) {
+    const field = DICTIONARY_STRING_FIELDS[fieldIndex]!;
+    const column = createDictEncodeState(rows.length);
+    for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+      internDictValue(column, rows[rowIndex]![field], rowIndex);
+    }
+    columns[field] = column;
+  }
+}
+
+function packOffsetStringArrays(rows: readonly FindingRow[], columns: PackedFindingColumns): void {
+  for (let fieldIndex = 0; fieldIndex < STRING_ARRAY_FIELDS.length; fieldIndex++) {
+    const field = STRING_ARRAY_FIELDS[fieldIndex]!;
+    const column = createOffsetEncodeState(rows.length);
+    for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+      appendOffsetRow(column, rows[rowIndex]![field], rowIndex);
+    }
+    columns[field] = column;
+  }
+}
+
+export function packFindingColumns(rows: readonly FindingRow[]): PackedFindingColumns {
+  const columns = Object.assign({}, EMPTY_PACKED_COLUMNS) as PackedFindingColumns;
+  packPlainColumns(rows, columns);
+  packNumberAndSparseColumns(rows, columns);
+  packDictionaryColumns(rows, columns);
+  packOffsetStringArrays(rows, columns);
+  return columns;
+}
+
+export function rowsToFindingBlock(
+  rows: readonly FindingRow[],
+  sequence: bigint,
+  datasetVersion: string,
+): FindingBlock {
   return create(FindingBlockSchema, {
     sequence,
     datasetVersion,
-    rowCount,
-    group,
-    repo,
-    image,
-    cve,
-    packageName,
-    packageVersion,
-    path,
-    cvss,
-    description,
-    cause,
-    exploit,
-    fixDate,
-    published,
-    layerTime,
-    link,
-    owner,
-    vecStr,
-    severity: { dictionary: severity.dictionary, indices: severity.indices },
-    packageType: { dictionary: packageType.dictionary, indices: packageType.indices },
-    status: { dictionary: status.dictionary, indices: status.indices },
-    advisoryType: { dictionary: advisoryType.dictionary, indices: advisoryType.indices },
-    buildType: { dictionary: buildType.dictionary, indices: buildType.indices },
-    type: { dictionary: type.dictionary, indices: type.indices },
-    kaiStatus: { rowIndices: kaiRowIndices, values: kaiValues },
-    riskFactors: { values: riskFactors.values, offsets: riskFactors.offsets },
-    applicableRules: { values: applicableRules.values, offsets: applicableRules.offsets },
+    rowCount: rows.length,
+    ...packFindingColumns(rows),
   });
 }
