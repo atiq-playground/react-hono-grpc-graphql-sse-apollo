@@ -2,9 +2,12 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import "./index.css";
-import { initDashboardSentry } from "./sentry";
 
-initDashboardSentry();
+if (import.meta.env.VITE_SENTRY_DSN) {
+  void import("./sentry")
+    .then(({ initDashboardSentry }) => initDashboardSentry())
+    .catch(() => undefined);
+}
 
 const rootElement = document.getElementById("root");
 

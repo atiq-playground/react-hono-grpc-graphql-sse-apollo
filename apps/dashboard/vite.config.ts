@@ -33,7 +33,7 @@ export default defineConfig({
     format: "es",
   },
   build: {
-    sourcemap: true,
+    sourcemap: "hidden",
   },
   optimizeDeps: {
     exclude: ["@repo/ui", "@repo/shared", "@repo/proto"],

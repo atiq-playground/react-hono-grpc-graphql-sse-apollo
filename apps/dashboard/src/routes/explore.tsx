@@ -1,12 +1,11 @@
 import { gql } from "@apollo/client";
 import { useQuery } from "@apollo/client/react";
 import { Button, Input } from "@repo/ui";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { useStore } from "zustand";
 import { useDashboardStore } from "../app/providers";
 import { exploreStateToSearch, parseExploreSearch } from "../app/url-state";
-import { VirtualizedFindingsGrid } from "../features/grid/VirtualizedFindingsGrid";
 import type { FacetsQuery, StreamDescriptorQuery } from "../graphql/generated";
 import { createQueryWorker, type QueryWorkerHandle } from "../query-worker/bridge";
 import type { PageRow } from "../state/dashboard-store";
@@ -45,6 +44,15 @@ export function ExplorePage() {
   const workerRef = useRef<QueryWorkerHandle | null>(null);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [rowCache, setRowCache] = useState<Map<number, PageRow>>(() => new Map());
+  const VirtualizedFindingsGrid = useMemo(
+    () =>
+      lazy(() =>
+        import("../features/grid/VirtualizedFindingsGrid").then(({ VirtualizedFindingsGrid }) => ({
+          default: VirtualizedFindingsGrid,
+        })),
+      ),
+    [],
+  );
 
   const { data, error: gqlError } = useQuery<StreamDescriptorQuery & FacetsQuery>(
     STREAM_AND_FACETS,
@@ -244,16 +252,29 @@ export function ExplorePage() {
       </div>
 
       <div className="mt-4">
-        <VirtualizedFindingsGrid
-          rowByIndex={
-            rowCache.size > 0 ? rowCache : new Map(pageRows.map((r, i) => [pageOffset + i, r]))
+        <Suspense
+          fallback={
+            <div
+              className="flex h-[480px] items-center justify-center border text-sm text-muted-foreground"
+              role="status"
+              aria-live="polite"
+              aria-busy="true"
+            >
+              Loading findings grid…
+            </div>
           }
-          total={pageTotal}
-          onVisibleRange={onVisibleRange}
-          onSort={onSort}
-          sortField={sort.field}
-          sortDirection={sort.direction}
-        />
+        >
+          <VirtualizedFindingsGrid
+            rowByIndex={
+              rowCache.size > 0 ? rowCache : new Map(pageRows.map((r, i) => [pageOffset + i, r]))
+            }
+            total={pageTotal}
+            onVisibleRange={onVisibleRange}
+            onSort={onSort}
+            sortField={sort.field}
+            sortDirection={sort.direction}
+          />
+        </Suspense>
       </div>
     </section>
   );
