@@ -2,7 +2,7 @@
 # Tear down the stack. Pass --volumes (or -v) to remove named volumes (no orphans).
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 COMPOSE_FILE="${COMPOSE_FILE:-docker/compose.yml}"
 
 cd "$ROOT"
@@ -12,7 +12,7 @@ for arg in "$@"; do
   case "$arg" in
     -v|--volumes) remove_volumes=1 ;;
     *)
-      echo "usage: bash scripts/infra/down.sh [--volumes|-v]" >&2
+      echo "usage: bash tools/infra/scripts/down.sh [--volumes|-v]" >&2
       exit 2
       ;;
   esac

@@ -1,33 +1,36 @@
 {
   "name": "infra",
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
-  "sourceRoot": "tools/infra/src",
+  "sourceRoot": "tools/infra/scripts",
   "projectType": "library",
   "tags": ["scope:infra", "type:tooling"],
   "targets": {
     "up": {
       "executor": "nx:run-commands",
       "options": {
-        "commands": ["bash scripts/infra/up.sh"]
+        "cwd": "tools/infra",
+        "command": "bash scripts/up.sh"
       }
     },
     "wait": {
       "executor": "nx:run-commands",
       "options": {
-        "commands": ["bash scripts/infra/wait-healthy.sh"]
+        "cwd": "tools/infra",
+        "command": "bash scripts/wait-healthy.sh"
       }
     },
     "down": {
       "executor": "nx:run-commands",
       "options": {
-        "commands": ["bash scripts/infra/down.sh --volumes"]
+        "cwd": "tools/infra",
+        "command": "bash scripts/down.sh --volumes"
       }
     },
     "smoke": {
       "executor": "nx:run-commands",
       "options": {
         "cwd": "tools/infra",
-        "command": "bun run src/smoke.ts"
+        "command": "bun run scripts/smoke.ts"
       }
     }
   }

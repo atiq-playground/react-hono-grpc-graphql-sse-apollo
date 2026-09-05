@@ -4,11 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "up": "bash ../../scripts/infra/up.sh",
-    "down": "bash ../../scripts/infra/down.sh --volumes",
-    "down:keep": "bash ../../scripts/infra/down.sh",
-    "wait": "bash ../../scripts/infra/wait-healthy.sh",
-    "smoke": "bun run src/smoke.ts"
+    "up": "bash scripts/up.sh",
+    "down": "bash scripts/down.sh --volumes",
+    "down:keep": "bash scripts/down.sh",
+    "wait": "bash scripts/wait-healthy.sh",
+    "smoke": "bun run scripts/smoke.ts"
   },
   "dependencies": {
     "@clickhouse/client": "1.11.2",

@@ -2,7 +2,7 @@
 # Wait until ClickHouse and Redis compose services report healthy.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 COMPOSE_FILE="${COMPOSE_FILE:-docker/compose.yml}"
 TIMEOUT_SECONDS="${INFRA_HEALTH_TIMEOUT_SECONDS:-120}"
 INTERVAL_SECONDS="${INFRA_HEALTH_INTERVAL_SECONDS:-2}"

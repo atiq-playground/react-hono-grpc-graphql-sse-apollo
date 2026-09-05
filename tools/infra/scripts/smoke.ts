@@ -3,7 +3,7 @@
  * Requires the compose stack to be healthy.
  *
  * Usage (from repo root, after `bun install` in tools/infra or workspace):
- *   bun run tools/infra/src/smoke.ts
+ *   bun run tools/infra/scripts/smoke.ts
  */
 import { createClient } from "@clickhouse/client";
 import Redis from "ioredis";

@@ -14,8 +14,7 @@ Written against the tree that exists, not the original Cloudflare/R2 plan.
 | `packages/ui` | Shared shadcn / Tailwind primitives consumed by the dashboard. |
 | `packages/shared` | Versioned worker message contracts validated with `zod/mini`. |
 | `docker/` | Compose stack for ClickHouse + Redis and ClickHouse DDL/config. |
-| `tools/infra` | Infra smoke script (`@clickhouse/client` + Redis pub/sub). |
-| `scripts/infra` | `up` / `wait-healthy` / `down` helpers for Compose. |
+| `tools/infra` | Infra operational scripts: Compose `up` / `wait-healthy` / `down` helpers and the `@clickhouse/client` + Redis pub/sub smoke check. |
 | `e2e/` | Playwright specs (none yet; foundation only). |
 | `docs/tickets/` | Implementation tickets and dependency graph. |
 
