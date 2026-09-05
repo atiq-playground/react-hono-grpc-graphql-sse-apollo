@@ -1,0 +1,67 @@
+---
+globs: **/*.css,**/*.html,**/*.tsx,**/*.jsx
+alwaysApply: false
+---
+> This file extends [common/security.mdc](../common/security.mdc) with web-specific security content.
+
+# Web Security Rules
+
+## Content Security Policy
+
+Always configure a production CSP.
+
+```text
+Content-Security-Policy:
+  default-src 'self';
+  script-src 'self';
+  style-src 'self' 'unsafe-inline';
+  img-src 'self' data:;
+  font-src 'self';
+  connect-src 'self';
+  frame-src 'none';
+  object-src 'none';
+  base-uri 'self';
+```
+
+Start from same-origin access because the Vite SPA proxies to the Hono gateway
+(`/graphql`, `/api/stream`) in development and should share origin in
+deployment. Add an origin only for a confirmed requirement. Account for
+Tailwind / CSS-variable styling before tightening `style-src`.
+
+## XSS Prevention
+
+- Never inject unsanitized HTML
+- Avoid `innerHTML` / `dangerouslySetInnerHTML` unless sanitized first
+- Escape dynamic template values
+- Sanitize user HTML with a vetted local sanitizer when absolutely necessary
+
+## Third-Party Scripts
+
+- Load asynchronously
+- Use SRI when serving from a CDN
+- Prefer self-hosting for critical dependencies when practical
+
+## HTTPS and Headers
+
+```text
+Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Referrer-Policy: strict-origin-when-cross-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+```
+
+## Forms
+
+- CSRF protection on state-changing forms
+- Rate limiting on submission endpoints
+- Validate client and server side
+- Prefer honeypots or light anti-abuse controls over heavy-handed CAPTCHA defaults
+
+## Private Data Access
+
+- Never expose ClickHouse or Redis directly to the browser.
+- Validate stream cursors, query params, and response bounds on the gateway.
+- Set content types, caching headers, and download filenames explicitly.
+- Treat exported values as untrusted spreadsheet content and mitigate formula
+  injection where the selected export format requires it.

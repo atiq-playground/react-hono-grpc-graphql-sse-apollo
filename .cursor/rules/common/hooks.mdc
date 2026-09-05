@@ -1,0 +1,12 @@
+# Cursor Hooks
+
+Hooks are optional automation around agent events. Keep them project-local,
+fast, deterministic, and scoped to changed files.
+
+- A hook must not install dependencies, mutate unrelated files, read the raw
+  dataset, publish artifacts, deploy, or bypass permissions.
+- Prefer repository-owned Bun/Nx/Biome commands after those tools exist.
+- Do not make every edit trigger a global build or full test suite.
+- Treat hook input as untrusted and quote file paths safely.
+- Keep final risk-based QA explicit rather than hiding it in a session-stop
+  hook.

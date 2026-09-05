@@ -1,0 +1,25 @@
+---
+globs: **/*.ts,**/*.tsx,**/*.js,**/*.jsx
+alwaysApply: false
+---
+# TypeScript/JavaScript Security
+
+> This file extends [common/security.mdc](../common/security.mdc) with TypeScript/JavaScript specific content.
+
+## Secret Management
+
+```typescript
+// NEVER: Hardcoded secrets
+const clickhousePassword = "secret-value"
+
+// Gateway and producer read secrets from process env / secret storage, not
+// from Vite-prefixed client variables.
+```
+
+Never place a secret in `VITE_*`; Vite exposes those values to the browser.
+Parse `unknown` inputs with `zod/mini` before object spread, property access,
+or protocol dispatch. Validate stream cursors and worker messages at the
+boundary rather than trusting browser-supplied identifiers.
+
+Use the canonical `security-reviewer` agent for comprehensive audits when the
+change warrants one.

@@ -1,0 +1,39 @@
+{
+  "name": "producer",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/producer/src",
+  "projectType": "application",
+  "tags": ["type:app", "scope:producer"],
+  "targets": {
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsc -b apps/producer/tsconfig.json --pretty false"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bunx jest --selectProjects node --passWithNoTests --testPathPatterns=apps/producer"
+      }
+    },
+    "ingest": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bun apps/producer/scripts/ingest.ts"
+      }
+    },
+    "serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bun apps/producer/src/server.ts"
+      }
+    },
+    "smoke": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bun apps/producer/scripts/smoke.ts"
+      }
+    }
+  }
+}

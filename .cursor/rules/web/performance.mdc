@@ -1,0 +1,79 @@
+---
+globs: **/*.css,**/*.html,**/*.tsx,**/*.jsx
+alwaysApply: false
+---
+> This file extends [common/performance.mdc](../common/performance.mdc) with web-specific performance content.
+
+# Web Performance Rules
+
+## Core Web Vitals Targets
+
+| Metric | Target |
+|--------|--------|
+| LCP | < 2.5s |
+| INP | < 200ms |
+| CLS | < 0.1 |
+| FCP | < 1.5s |
+| TBT | < 200ms |
+
+## Loading Strategy
+
+1. Keep the initial Vite route shell small.
+2. Use route- and feature-level dynamic imports for heavy surfaces (grid,
+   charts, export, detail).
+3. Wrap lazy modules in Suspense loading UI and an error boundary so a slow
+   or failed chunk does not blank the shell.
+4. Preload a chunk only on clear user intent (hover or focus of the next
+   route). Do not prefetch every lazy module.
+5. Import grid and chart code from concrete entry points. Avoid barrel files
+   that pull TanStack Table, Virtual, Recharts, or unused shadcn modules into
+   the initial chunk.
+
+## Production Bundles
+
+- Inspect the production graph for initial and async chunk sizes and
+  duplicated dependencies. Set budgets from that evidence.
+- Serve built chunks with content hashes and immutable cache headers.
+- Avoid a broad vendor chunk. Add manual grouping only when measurements
+  justify it.
+- Preserve Vite's automatic splitting defaults. Do not add bundler-specific
+  tuning until a measured regression requires it.
+- Validate lazy chunks on a slow network and when a chunk fails to load.
+
+## Image Optimization
+
+- Explicit `width` and `height`
+- `loading="eager"` plus `fetchpriority="high"` for hero media only
+- `loading="lazy"` for below-the-fold assets
+- Prefer AVIF or WebP with fallbacks
+- Never ship source images far beyond rendered size
+
+## Font Loading
+
+- Max two font families unless there is a clear exception
+- `font-display: swap`
+- Subset where possible
+- Preload only the truly critical weight/style
+
+## Animation Performance
+
+- Animate compositor-friendly properties only
+- Use `will-change` narrowly and remove it when done
+- Prefer CSS for simple transitions
+- Use `requestAnimationFrame` or established animation libraries for JS motion
+- Avoid scroll handler churn; use IntersectionObserver or well-behaved libraries
+
+## Performance Checklist
+
+- [ ] React remains responsive while query and export work runs
+- [ ] Artifact requests are versioned, bounded, cacheable, and free of waterfalls
+- [ ] Heavy routes and features load through dynamic imports with loading and
+      error fallbacks
+- [ ] Production chunks meet evidence-based size budgets and are not duplicated
+      across the graph
+- [ ] Built chunks are content-hashed and cached as immutable
+- [ ] Lazy chunks remain usable on a slow network and after a load failure
+- [ ] Grid row identity and rendering are stable
+- [ ] Charts avoid unnecessary full-data copies and redraws
+- [ ] No layout shifts from loading, error, or detail states
+- [ ] Motion respects reduced-motion preferences

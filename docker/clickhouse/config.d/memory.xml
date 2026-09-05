@@ -1,0 +1,8 @@
+<!--
+  Cap ClickHouse process memory so T04 ingest fails with a clear OOM/memory
+  limit error instead of exhausting the developer host.
+-->
+<clickhouse>
+    <max_server_memory_usage>4294967296</max_server_memory_usage>
+    <max_server_memory_usage_to_ram_ratio>0.5</max_server_memory_usage_to_ram_ratio>
+</clickhouse>

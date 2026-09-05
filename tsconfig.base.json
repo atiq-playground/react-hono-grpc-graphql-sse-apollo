@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleDetection": "force",
+    "jsx": "react-jsx",
+    "allowJs": false,
+    "moduleResolution": "bundler",
+    "verbatimModuleSyntax": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noPropertyAccessFromIndexSignature": false,
+    "baseUrl": ".",
+    "paths": {
+      "@repo/ui": ["packages/ui/src/index.ts"],
+      "@repo/ui/*": ["packages/ui/src/*"],
+      "@repo/shared": ["packages/shared/src/index.ts"],
+      "@repo/shared/*": ["packages/shared/src/*"],
+      "@repo/proto": ["packages/proto/src/index.ts"],
+      "@repo/proto/*": ["packages/proto/src/*"]
+    }
+  }
+}

@@ -1,0 +1,45 @@
+# dependencies
+node_modules
+
+# build outputs
+dist
+out
+*.tgz
+
+# Nx
+.nx
+
+# dotenv / secrets
+.env
+.env.*
+!.env.example
+
+# producer raw dataset (local only)
+apps/producer/data/raw/
+
+# code coverage
+coverage
+*.lcov
+
+# logs
+logs
+*.log
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# caches
+.eslintcache
+.cache
+*.tsbuildinfo
+.buf-cache
+
+# test / e2e outputs
+test-results
+playwright-report
+blob-report
+playwright/.cache
+
+# IntelliJ based IDEs
+.idea
+
+# Finder (MacOS) folder config
+.DS_Store

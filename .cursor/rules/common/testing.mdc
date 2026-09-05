@@ -1,0 +1,65 @@
+# Testing and Final QA
+
+Implement the PRD before broad test construction. Testing is selected by risk,
+not by a repository-wide coverage percentage or a mandatory test-first loop.
+
+- Add focused tests early only for a hard seam where they materially reduce
+  implementation risk.
+- During final QA, use Jest for selected deterministic unit and integration
+  tests, React Testing Library for user-observable component behavior, and
+  Playwright for critical browser journeys.
+- Prioritize source parsing and validation, artifact and API contracts, Web
+  Worker messages and query behavior, URL-state round trips, preference
+  recovery, and the core exploration flow.
+
+## Test Tool Boundaries
+
+- **Jest is the selected test runner.** Use it for fast,
+  deterministic unit and integration tests: pure logic, data transforms,
+  component behavior, and controlled DOM interactions.
+- **React Testing Library is a rendering and DOM interaction/query layer, not a
+  test runner or layout engine.** Use it with a runner to test user-observable
+  behavior through accessible roles, names, labels, text, and interactions.
+- **JSDOM does not compute browser layout.** A JSDOM test cannot prove rendered
+  dimensions, element boundary alignment, responsive reflow, CSS animation, or
+  other geometry-dependent behavior.
+- **Playwright is the real-browser testing layer.** Use it for computed layout,
+  element boundary alignment, responsive behavior, CSS animation, screenshots
+  and visual regression, and end-to-end navigation.
+- **Do not use class-string assertions as evidence of visual behavior.** For
+  example, checking rendered HTML for `dashboard-padding` does not prove visual
+  alignment. Assert a class or design token only when that exact token is an
+  intentional public contract, and document that rationale in the test.
+
+## Failure Diagnosis
+
+Check isolation, deterministic fixtures, contract validity, and mock fidelity.
+Fix the implementation when behavior is wrong; fix the test when its
+expectation is unsupported by the product contract.
+
+## Test Structure (AAA Pattern)
+
+Prefer Arrange-Act-Assert structure for tests:
+
+```typescript
+test('returns matching findings for a valid query', () => {
+  // Arrange
+  const findings = makeFindings()
+
+  // Act
+  const result = queryFindings(findings, { severity: ['critical'] })
+
+  // Assert
+  expect(result.every((finding) => finding.severity === 'critical')).toBe(true)
+})
+```
+
+### Test Naming
+
+Use descriptive names that explain the behavior under test:
+
+```typescript
+test('returns no findings when filters match nothing', () => {})
+test('rejects an artifact with an unsupported schema version', () => {})
+test('recovers default preferences from invalid local storage', () => {})
+```

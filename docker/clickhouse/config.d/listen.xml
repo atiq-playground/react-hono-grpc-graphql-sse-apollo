@@ -1,0 +1,7 @@
+<!--
+  Bind all interfaces so compose-network and published-port clients can connect.
+  Default loopback-only binding breaks host access under Docker Desktop / WSL.
+-->
+<clickhouse>
+    <listen_host replace="replace">0.0.0.0</listen_host>
+</clickhouse>

@@ -1,0 +1,17 @@
+---
+globs: **/*.ts,**/*.tsx,**/*.js,**/*.jsx
+alwaysApply: false
+---
+# TypeScript/JavaScript Hooks
+
+> Extends [common/hooks.mdc](../common/hooks.mdc).
+
+If project hooks are introduced later, use repository-owned commands:
+
+- Biome for focused formatting and linting.
+- The affected Nx project's typecheck target for type validation.
+- A changed-file check for debug logging and accidental secret exposure.
+
+Do not configure alternate package managers, formatters, linters, global
+TypeScript checks, or automatic full builds for this project. Hooks must not be
+created merely because this guidance describes acceptable behavior.

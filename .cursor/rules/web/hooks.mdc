@@ -1,0 +1,22 @@
+---
+globs: **/*.css,**/*.html,**/*.tsx,**/*.jsx
+alwaysApply: false
+---
+> This file extends [common/hooks.mdc](../common/hooks.mdc) with web-specific hook recommendations.
+
+# Web Hooks
+
+Prefer project-local tooling and do not wire hooks to remote one-off package
+execution.
+
+If hooks are introduced in a later phase:
+
+1. Format or lint the changed file with the repository-owned Biome command.
+2. Run the narrow affected Nx target only when its latency is suitable for a
+   hook.
+3. Keep builds, Jest, Playwright, and global checks explicit; do not run them
+   automatically after every edit or at every session stop.
+
+Never use a hook to install packages, invoke alternate project tooling, deploy
+services, or inspect `ui_demo.json`. This rule does not authorize creating hook
+configuration.

@@ -1,0 +1,173 @@
+---
+globs: **/*.test.tsx,**/*.test.jsx,**/*.spec.tsx,**/*.spec.jsx,**/__tests__/**/*.ts,**/__tests__/**/*.tsx
+alwaysApply: false
+---
+# React Testing
+
+> This file extends [typescript/testing.mdc](../typescript/testing.mdc) and [common/testing.mdc](../common/testing.mdc) with React specific content.
+
+## Library Choice
+
+- **Jest + React Testing Library** for selected component and integration seams.
+- **Playwright** for critical browser flows, responsive behavior, layout,
+  keyboard operation, and browser/Worker integration.
+
+Build these suites during final risk-based QA. Add a focused test earlier only
+when it materially reduces risk.
+
+## Core Principle
+
+Test what the user sees and does, not implementation details.
+
+- Query by accessible role first, then label, then text - fall back to `data-testid` only when nothing else fits
+- Never assert on internal state, props passed to children, or which hooks were called
+- Refactor without breaking tests = the test was testing behavior; that is the goal
+
+## Query Priority
+
+RTL exposes queries in three families. Use this priority order top-down:
+
+1. **Accessible to everyone**
+   - `getByRole(role, { name })` - primary choice
+   - `getByLabelText` - for form inputs
+   - `getByPlaceholderText` - when no label is available (and add a label)
+   - `getByText` - for non-interactive text
+   - `getByDisplayValue` - for form fields with a current value
+
+2. **Semantic queries**
+   - `getByAltText` - for images
+   - `getByTitle` - last resort, low accessibility value
+
+3. **Test IDs**
+   - `getByTestId("some-id")` - escape hatch only, when none of the above work
+
+`getBy*` throws when no match. `queryBy*` returns null (use for asserting absence). `findBy*` returns a promise (use for async).
+
+## User Interaction
+
+Prefer `userEvent` over `fireEvent`. `userEvent` simulates real browser sequences (focus, keydown, beforeinput, input, keyup) - `fireEvent` dispatches a single synthetic event.
+
+```tsx
+import userEvent from "@testing-library/user-event";
+
+test("submits the form", async () => {
+  const user = userEvent.setup();
+  render(<UserForm onSubmit={handleSubmit} />);
+
+  await user.type(screen.getByLabelText("Email"), "user@example.com");
+  await user.click(screen.getByRole("button", { name: /save/i }));
+
+  expect(handleSubmit).toHaveBeenCalledWith({ email: "user@example.com" });
+});
+```
+
+- Always `await` `userEvent` calls - they are async
+- Call `userEvent.setup()` once at the top of each test, then reuse the returned `user`
+
+## Async Assertions
+
+```tsx
+// WRONG: synchronous query for async-rendered content
+expect(screen.getByText("Loaded")).toBeInTheDocument();   // throws - not in DOM yet
+
+// CORRECT: findBy* (returns a promise, retries)
+expect(await screen.findByText("Loaded")).toBeInTheDocument();
+
+// CORRECT: waitFor for non-element assertions
+await waitFor(() => expect(saveSpy).toHaveBeenCalled());
+```
+
+- `findBy*` for async element appearance
+- `waitFor` for async expectations on side effects or other matchers
+- Never `setTimeout` + assertion - flaky
+
+## Network Boundaries
+
+Use deterministic fixtures at the narrowest useful fetch boundary. If final QA
+selects a network-level mock, configure it once and reset it between tests; do
+not add a mocking dependency speculatively.
+
+## Avoid Snapshot Tests for Components
+
+Snapshots of rendered output are brittle, hard to review, and rubber-stamped by reviewers. Use them only for:
+
+- Pure data serialization (e.g., a transformer that produces a stable string)
+- Catching unintended regressions in non-visual output
+
+For component visual regression, use Playwright screenshots when the visual
+state is important enough to justify a maintained baseline.
+
+## Test Setup Helpers
+
+Wrap providers once:
+
+```tsx
+function renderWithProviders(ui: React.ReactElement) {
+  return render(
+    <QueryClientProvider client={new QueryClient()}>
+      <ThemeProvider theme={lightTheme}>
+        <Router>{ui}</Router>
+      </ThemeProvider>
+    </QueryClientProvider>,
+  );
+}
+```
+
+Export from `test-utils.tsx` and use everywhere.
+
+## Custom Hook Testing
+
+Use `renderHook` from RTL:
+
+```tsx
+import { renderHook, act } from "@testing-library/react";
+
+test("useCounter increments", () => {
+  const { result } = renderHook(() => useCounter());
+  act(() => result.current.increment());
+  expect(result.current.count).toBe(1);
+});
+```
+
+- Always wrap state-changing calls in `act`
+- Always test through the public hook API, not internal implementation
+
+## Accessibility Assertions
+
+```tsx
+import { axe } from "jest-axe";
+
+test("UserCard has no a11y violations", async () => {
+  const { container } = render(<UserCard user={mockUser} />);
+  expect(await axe(container)).toHaveNoViolations();
+});
+```
+
+Run axe assertions in component tests - catches missing labels, ARIA misuse, color contrast (limited).
+
+## When to Reach for Playwright
+
+Component test with RTL + JSDOM cannot:
+
+- Test real layout (flexbox, grid, viewport-dependent rendering)
+- Test scrolling, drag-and-drop, paste from clipboard
+- Test browser-native animation, CSS transitions
+- Test cross-frame interactions (iframes, popups)
+
+For those, use the project's Playwright end-to-end suite.
+
+## Risk Priorities
+
+Prioritize URL-state round trips, invalid preference recovery, TanStack Query
+loading/error behavior, Web Worker protocol handling, accessible grid
+interaction, and the critical explore-to-detail journey. Do not enforce an
+arbitrary coverage percentage.
+
+## Anti-Patterns
+
+- Asserting on `container.querySelector` - bypasses accessibility queries
+- Asserting on number of renders - implementation detail
+- Mocking React hooks (`jest.mock("react", ...)`) - refactor the component instead
+- Mocking child components by default - tests the integration, not the parent in isolation
+- Manual `act()` warnings ignored - they indicate real bugs
+

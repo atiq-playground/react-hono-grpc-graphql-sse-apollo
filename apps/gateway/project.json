@@ -1,0 +1,27 @@
+{
+  "name": "gateway",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/gateway/src",
+  "projectType": "application",
+  "tags": ["type:app", "scope:gateway"],
+  "targets": {
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsc -b apps/gateway/tsconfig.json --pretty false"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bunx jest --selectProjects node --passWithNoTests --testPathPatterns=apps/gateway"
+      }
+    },
+    "serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bun apps/gateway/src/server.ts"
+      }
+    }
+  }
+}

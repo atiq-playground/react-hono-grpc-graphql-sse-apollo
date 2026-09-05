@@ -1,0 +1,21 @@
+{
+  "name": "ui",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/ui/src",
+  "projectType": "library",
+  "tags": ["type:package", "scope:ui"],
+  "targets": {
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsc -b packages/ui/tsconfig.json --pretty false"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bunx jest --selectProjects browser --passWithNoTests --testPathPatterns=packages/ui"
+      }
+    }
+  }
+}

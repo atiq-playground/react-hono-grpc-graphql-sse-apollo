@@ -1,0 +1,47 @@
+---
+globs: **/*.ts,**/*.tsx,**/*.js,**/*.jsx
+alwaysApply: false
+---
+# TypeScript/JavaScript Patterns
+
+> This file extends [common/patterns.mdc](../common/patterns.mdc) with TypeScript/JavaScript specific content.
+
+## API Response Format
+
+```typescript
+type ApiResponse<T> =
+  | { ok: true; data: T }
+  | { ok: false; error: { code: string; message: string } }
+```
+
+## Custom Hooks Pattern
+
+```typescript
+export function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value)
+
+  useEffect(() => {
+    const handler = setTimeout(() => setDebouncedValue(value), delay)
+    return () => clearTimeout(handler)
+  }, [value, delay])
+
+  return debouncedValue
+}
+```
+
+## Versioned Boundary Contracts
+
+```typescript
+type QueryWorkerMessage =
+  | { version: 1; requestId: string; type: 'query'; query: FindingQuery }
+  | { version: 1; requestId: string; type: 'export'; query: FindingQuery }
+
+function parseQueryWorkerMessage(value: unknown): QueryWorkerMessage {
+  return queryWorkerMessageSchema.parse(value)
+}
+```
+
+Keep stream, API, URL, preference, and worker-message contracts explicit,
+versioned, and validated. Use discriminated unions for protocols and exhaust
+all variants. Do not model immutable dataset versions or Finding Blocks as a
+mutable CRUD repository.

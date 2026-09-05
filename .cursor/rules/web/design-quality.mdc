@@ -1,0 +1,61 @@
+---
+description: Web design quality standards for dashboard frontend surfaces
+globs: **/*.css,**/*.html,**/*.tsx,**/*.jsx
+alwaysApply: false
+---
+> This file extends [common/patterns.mdc](../common/patterns.mdc) with web-specific design-quality guidance.
+> Product-specific constraints live in [design-system.mdc](./design-system.mdc).
+
+# Web Design Quality Standards
+
+## Product-Specific Quality
+
+The dashboard should make a large vulnerability dataset fast to scan,
+understand, and navigate. Clarity, density, accessibility, and responsive
+behavior take priority over decorative novelty.
+
+### Banned Patterns
+
+- Default card grids with uniform spacing and no hierarchy
+- Unmodified library defaults passed off as finished design
+- Uniform radius, spacing, and shadows across every component
+- Severity communicated by color alone
+- Charts without text equivalents or grids without keyboard support
+- Dashboard-by-numbers layouts with no clear exploration hierarchy
+- Default font stacks used without a deliberate reason
+
+### Required Qualities
+
+Every meaningful frontend surface should demonstrate the qualities relevant to
+its task:
+
+1. Clear hierarchy through scale contrast
+2. Intentional rhythm in spacing, not uniform padding everywhere
+3. Density that remains legible on constrained screens
+4. Deliberate, readable typography
+5. Color used semantically, not just decoratively
+6. Hover, focus, and active states that feel designed
+7. Consistent shadcn / Tailwind theme usage via `packages/ui`
+8. Motion only when it clarifies state and respects reduced motion
+9. Data visualization treated as part of the design system
+
+## Before Writing Frontend Code
+
+1. Pick a specific style direction. Avoid vague defaults like "clean minimal".
+2. Define a palette intentionally.
+3. Choose typography deliberately.
+4. Define responsive information priority.
+5. Verify grid/chart designs use TanStack Table + Virtual and Recharts via
+   shadcn charts. Do not introduce a second grid or chart stack without
+   confirmation.
+
+Do not invent a dark theme or default to dark mode. Polarity-flipped ink is a
+brand surface treatment, not a theme mode. See [design-system.mdc](./design-system.mdc).
+
+## Component Checklist
+
+- [ ] Does it use shadcn primitives intentionally rather than exposing raw defaults?
+- [ ] Does it have intentional hover/focus/active states?
+- [ ] Does it use hierarchy rather than uniform emphasis?
+- [ ] Would this look believable in a real product screenshot?
+- [ ] Does it follow the product design system in [design-system.mdc](./design-system.mdc)?

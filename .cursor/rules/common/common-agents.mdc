@@ -1,0 +1,17 @@
+# Agent Use
+
+Repository agents live only in `.cursor/agents/`. Before naming or delegating to
+one, verify that its definition exists there and that its declared tools fit
+the task. Do not reference global, provider-mirror, or phantom agents.
+
+- Use planning support for large or ambiguous work.
+- Use architecture support for consequential boundary decisions.
+- Review substantive code changes with evidence.
+- Use security review for changes involving untrusted input, gateway routes,
+  stream validation, browser storage, or exports.
+- Use final-QA guidance when the implementation reaches the risk-based
+  validation phase.
+
+Parallelize independent investigations when it reduces latency, but keep one
+owner responsible for reconciling findings against the canonical project
+contract.

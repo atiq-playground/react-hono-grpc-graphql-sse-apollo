@@ -1,0 +1,29 @@
+# Git Workflow
+
+## Commit Message Format
+
+```
+<type>: <description>
+
+<optional body>
+```
+
+Types: feat, fix, refactor, docs, test, chore, perf, ci
+
+Do not add AI attribution or `Co-Authored-By` lines.
+
+## Pull Request Workflow
+
+When creating PRs:
+
+1. Analyze full commit history (not just latest commit)
+2. Use `git diff [base-branch]...HEAD` to see all changes
+3. Draft PR summary that is compact, concise, clear to the point whilst capturing the comprehensive changes.
+4. Include test plan with TODOs that are one liners and easy to follow steps.
+5. Push with `-u` flag if new branch
+
+> For the full implementation and risk-based QA process before git operations,
+> see [development-workflow.mdc](./development-workflow.mdc).
+>
+> Production releases use frozen `release-X.Y.Z` branches - see [release.mdc](./release.mdc).
+> Delete merged feature branches; never delete `release-*` branches.

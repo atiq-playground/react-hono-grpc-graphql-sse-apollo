@@ -1,0 +1,21 @@
+{
+  "name": "shared",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/shared/src",
+  "projectType": "library",
+  "tags": ["type:package", "scope:shared"],
+  "targets": {
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsc -b packages/shared/tsconfig.json --pretty false"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bunx jest --selectProjects node --passWithNoTests --testPathPatterns=packages/shared"
+      }
+    }
+  }
+}

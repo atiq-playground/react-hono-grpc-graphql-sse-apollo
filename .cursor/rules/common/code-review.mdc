@@ -1,0 +1,41 @@
+# Code Review Standards
+
+Review the actual diff and report only findings supported by code, contracts,
+documentation, or reproducible behavior. A clean review is valid.
+
+## Confidence
+
+- High confidence: directly demonstrated defect or contract violation.
+- Medium confidence: likely defect with a stated missing fact.
+- Low confidence: question or optional suggestion, never presented as a defect.
+
+Block on confirmed security vulnerabilities, data loss, broken architecture
+boundaries, or incorrect core behavior. Do not block on personal style.
+
+## Project Review Checklist
+
+- Preserve the three apps (`dashboard`, `gateway`, `producer`) and Nx dependency
+  direction: apps may import `packages/*`; packages never import apps.
+- Keep control plane (GraphQL) separate from data plane (gRPC / Redis / SSE).
+  Reject GraphQL subscriptions for the findings firehose.
+- Keep the compact columnar index owned by the browser Web Worker; reject
+  full-corpus duplication into Zustand or the React tree.
+- Validate boundaries with `zod/mini`: stream cursors, worker messages, URL
+  state, preferences, and gateway inputs.
+- Keep filtering, sorting, suggestions, pagination, and export off the React
+  render thread.
+- Use Apollo Client for GraphQL control-plane data, URL parameters for
+  shareable filter/sort state, and Context plus versioned local storage for
+  preferences.
+- Use shadcn, Tailwind, TanStack Table, TanStack Virtual, and Recharts (via
+  shadcn charts) as the grid and chart stack.
+- Apply exact `kaiStatus` matching for Analysis and AI Analysis per
+  `docs/CONTEXT.md`.
+- Check loading, empty, error, keyboard, responsive, and constrained-device
+  behavior where the changed surface requires it.
+- Confirm tests and checks are proportional to the active phase and risk; do
+  not require an arbitrary coverage percentage.
+
+Security-sensitive changes include untrusted dataset handling, stream and
+request validation, exports, URLs, and browser storage. Review those paths
+against [security.mdc](security.mdc).

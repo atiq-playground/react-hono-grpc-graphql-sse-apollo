@@ -1,0 +1,33 @@
+import { defineConfig, devices } from "@playwright/test";
+
+const dashboardPort = Number(process.env.PLAYWRIGHT_DASHBOARD_PORT ?? 4200);
+const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? `http://127.0.0.1:${dashboardPort}`;
+
+export default defineConfig({
+  testDir: "./e2e",
+  fullyParallel: true,
+  forbidOnly: !!process.env.CI,
+  retries: process.env.CI ? 1 : 0,
+  reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
+  use: {
+    baseURL,
+    trace: "on-first-retry",
+    screenshot: "only-on-failure",
+    video: "off",
+  },
+  projects: [
+    {
+      name: "chromium",
+      use: { ...devices["Desktop Chrome"] },
+    },
+  ],
+  webServer: {
+    command: `bunx nx serve dashboard -- --host 127.0.0.1 --port ${dashboardPort}`,
+    url: baseURL,
+    reuseExistingServer: !process.env.CI,
+    timeout: 120_000,
+  },
+  // T15: no specs yet; Playwright exits cleanly with zero tests.
+  // Keep testMatch so later e2e specs are discovered without config churn.
+  testMatch: "**/*.{spec,test}.{ts,tsx,js}",
+});

@@ -1,0 +1,27 @@
+---
+description: Release notes for this playground (no frozen production pipeline yet)
+alwaysApply: true
+---
+
+# Release Notes
+
+This repository is a playground monorepo. It does **not** yet have a frozen
+SemVer release-branch pipeline, Release Please automation, or production
+droplet / edge deploy workflow. Do not invent those assumptions in docs or CI
+unless a dedicated ticket introduces them.
+
+## What applies today
+
+- Use Conventional Commits: `type(scope): summary` (`feat`, `fix`, `docs`,
+  `refactor`, `test`, `chore`).
+- Prefer one logical change per commit; imperative mood; no trailing period.
+- Never add AI attribution or `Co-Authored-By` lines.
+- Do not hand-edit version numbers casually across packages without an agreed
+  release process.
+- Do not treat merges to `main` as an automatic production deploy.
+
+## When a real release pipeline is added
+
+Document it in a dedicated ADR or ticket and replace this file. Until then,
+keep release guidance minimal and local (Docker Compose for ClickHouse/Redis,
+Nx serve targets for apps).

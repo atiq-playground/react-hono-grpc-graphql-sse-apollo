@@ -1,0 +1,23 @@
+# Security Guidelines
+
+Treat the raw dataset, streamed blocks, GraphQL and SSE inputs, URL state,
+browser storage, exports, and fetched content as untrusted.
+
+## Required Controls
+
+- Never hardcode or expose secrets, tokens, connection credentials, or private
+  source data.
+- Validate and bound every external input with `zod/mini` before use; reject
+  unsupported versions and unexpected fields explicitly.
+- Keep ClickHouse and Redis private to producer and gateway. The browser reaches
+  data only through same-origin gateway routes (`/graphql`, `/api/stream`).
+- Prevent XSS by rendering untrusted values as text and validating external
+  URL schemes. Avoid raw HTML.
+- Return safe client errors and keep sensitive details out of logs.
+- Apply authorization, origin checks, abuse controls, and rate limits where the
+  actual route risk requires them; do not claim controls that are not present.
+- Bound streaming parsers, result sizes, and export work to prevent memory or
+  resource exhaustion.
+
+If a secret is exposed, stop dissemination, remove it from the active change,
+rotate it through the owning system, and inspect related paths for recurrence.

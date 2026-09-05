@@ -1,0 +1,38 @@
+# Development Workflow
+
+> Extends [git-workflow.mdc](./git-workflow.mdc) with the implementation flow
+> for this dashboard.
+
+## Delivery Sequence
+
+1. Read the canonical guidance in `AGENTS.md`, `docs/RULES.md`,
+   `docs/CONTEXT.md`, `docs/TECH_STACK.md`, and the active ticket under
+   `docs/tickets/`. For UI work, also apply
+   [`.cursor/rules/web/design-system.mdc`](../web/design-system.mdc).
+2. Plan non-trivial work and identify the smallest complete vertical slice.
+3. Preserve Nx boundaries: `apps/dashboard`, `apps/gateway`, and
+   `apps/producer` may depend on reusable `packages/*`; packages never depend
+   on apps.
+4. Implement the active ticket slice before broad test construction.
+5. Validate changed boundaries and run focused checks proportional to risk.
+6. Review the actual diff with evidence, then follow the git workflow.
+
+## Project Tooling
+
+- Use Bun for installs and command execution, Nx for project tasks and
+  boundaries, and Biome for formatting and linting once scaffolded.
+- Use Docker Compose for local ClickHouse and Redis.
+- Use primary vendor documentation when behavior is version-sensitive.
+- Do not add a dependency or abstraction without a confirmed capability gap.
+- Do not scaffold, install tooling, or create infrastructure outside the active
+  plan phase.
+
+## Testing Sequence
+
+Testing is deferred, not omitted. Final risk-based QA uses Jest with React
+Testing Library for selected unit and integration seams and Playwright for
+critical browser journeys. Add an earlier focused test only when it materially
+reduces risk around a hard contract, parser, worker protocol, or regression.
+
+Global validation belongs to the final validation phase unless the user asks
+for it earlier.

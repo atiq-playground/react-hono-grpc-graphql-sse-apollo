@@ -1,0 +1,44 @@
+---
+globs: **/*.tsx,**/*.jsx,**/components/**/*.ts,**/components/**/*.js,**/app/**/*.tsx,**/routes/**/*.tsx
+alwaysApply: false
+---
+# React Patterns
+
+> Extends the common and TypeScript rules for the Vite React SPA.
+
+## Components and Routing
+
+- Write function components and hooks. Do not add class components except a
+  narrowly required error-boundary implementation.
+- React Router owns navigation and route composition. Keep filter and sort
+  state in validated URL search parameters so useful views are shareable.
+- Route modules coordinate data and feature surfaces; reusable UI stays inside
+  focused feature or component modules.
+- Use stable list and grid row identifiers. Never use an array index where
+  ordering or membership can change.
+
+## State Ownership
+
+- Local interaction state stays local.
+- TanStack Query owns remote manifests, summaries, chunks, and detail shards.
+- URL parameters own shareable filter and sort state.
+- React Context plus versioned local storage owns low-frequency preferences.
+  Validate stored values and recover safely to defaults.
+- Query results stay in the browser Web Worker protocol; do not duplicate the
+  complete compact index in React state or introduce Redux.
+
+## Data and Rendering
+
+- Do not fetch GraphQL control-plane data in ad hoc effects. Use Apollo Client
+  with explicit loading/error/empty states.
+- Keep filtering, sorting, suggestions, pagination, and export out of render.
+- Memoize only when identity is contractually important or profiling shows a
+  real cost.
+- Compose shadcn components semantically. Use TanStack Table + Virtual and
+  Recharts via shadcn charts as the grid and chart stack.
+
+## Accessibility
+
+Use semantic structure, labels, keyboard support, visible focus, meaningful
+chart alternatives, and announced loading/error states. Grid and chart
+integration must remain usable without pointer-only interaction.

@@ -1,0 +1,5 @@
+interface:
+  display_name: "Set Up Cursor Skills"
+  short_description: "Align Cursor guidance and skills"
+policy:
+  allow_implicit_invocation: false

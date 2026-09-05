@@ -1,0 +1,18 @@
+# Performance
+
+Measure before optimizing and protect constrained devices by default.
+
+- Stream the raw source; never load the complete local dataset into memory.
+- Publish compact, versioned query chunks and summaries, with detail shards
+  loaded only on demand.
+- Support validated HTTP range and conditional requests where artifact access
+  benefits from them; keep cache keys version-aware.
+- Run filtering, sorting, search suggestions, pagination, and export in the
+  browser Web Worker, not on the React render thread.
+- Keep Worker messages compact and versioned; use transferable data where it
+  produces a measured benefit.
+- Bound concurrency, memory, response sizes, and export work.
+- Avoid request waterfalls and duplicate artifact downloads. Let TanStack Query
+  own remote cache and request lifecycle.
+- Diagnose build or runtime regressions from observed evidence, fix
+  incrementally, and rerun only the focused check needed for the changed area.

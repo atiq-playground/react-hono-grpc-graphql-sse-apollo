@@ -1,0 +1,76 @@
+# GraphQL control plane (T07). No subscriptions — firehose is SSE (T06).
+
+scalar JSON
+
+type SeverityCount {
+  severity: String!
+  count: Int!
+}
+
+type Summary {
+  total: Int!
+  bySeverity: [SeverityCount!]!
+  analysisCount: Int!
+  aiAnalysisCount: Int!
+}
+
+type FacetValue {
+  value: String!
+  count: Int!
+}
+
+type Facets {
+  severity: [FacetValue!]!
+  packageType: [FacetValue!]!
+  status: [FacetValue!]!
+  advisoryType: [FacetValue!]!
+  group: [FacetValue!]!
+  repo: [FacetValue!]!
+  kaiStatus: [FacetValue!]!
+}
+
+type Finding {
+  id: ID!
+  group: String!
+  repo: String!
+  image: String!
+  cve: String!
+  severity: String!
+  packageName: String!
+  packageVersion: String!
+  packageType: String!
+  path: String!
+  status: String!
+  advisoryType: String!
+  buildType: String!
+  type: String!
+  cvss: Float!
+  description: String!
+  cause: String!
+  exploit: String!
+  fixDate: String!
+  published: String!
+  layerTime: String!
+  link: String!
+  owner: String!
+  vecStr: String!
+  kaiStatus: String
+  riskFactors: [String!]!
+  applicableRules: [String!]!
+}
+
+type StreamDescriptor {
+  datasetVersion: String!
+  totalRecords: Int!
+  """Block sequence to pass as after_sequence / Last-Event-ID bootstrap (0 = start)."""
+  cursor: String!
+  redisStream: String!
+  ssePath: String!
+}
+
+type Query {
+  summary: Summary!
+  facets: Facets!
+  finding(id: ID!): Finding
+  streamDescriptor: StreamDescriptor!
+}

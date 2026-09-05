@@ -1,0 +1,28 @@
+{
+  "mcpServers": {
+    "cloudflare": {
+      "url": "https://mcp.cloudflare.com/mcp"
+    },
+    "cloudflare-docs": {
+      "url": "https://docs.mcp.cloudflare.com/mcp"
+    },
+    "cloudflare-bindings": {
+      "url": "https://bindings.mcp.cloudflare.com/mcp"
+    },
+    "cloudflare-builds": {
+      "url": "https://builds.mcp.cloudflare.com/mcp"
+    },
+    "cloudflare-observability": {
+      "url": "https://observability.mcp.cloudflare.com/mcp"
+    },
+    "digitalocean-docs": {
+      "url": "https://docs.mcp.digitalocean.com/mcp"
+    },
+    "digitalocean-droplets": {
+      "url": "https://droplets.mcp.digitalocean.com/mcp",
+      "headers": {
+        "Authorization": "Bearer ${env:DIGITALOCEAN_API_TOKEN}"
+      }
+    }
+  }
+}

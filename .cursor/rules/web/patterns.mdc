@@ -1,0 +1,85 @@
+---
+globs: **/*.css,**/*.html,**/*.tsx,**/*.jsx
+alwaysApply: false
+---
+> This file extends [common/patterns.mdc](../common/patterns.mdc) with web-specific patterns.
+
+# Web Patterns
+
+## Component Composition
+
+### Compound Components
+
+Use compound components when related UI shares state and interaction semantics:
+
+```tsx
+<Tabs defaultValue="overview">
+  <Tabs.List>
+    <Tabs.Trigger value="overview">Overview</Tabs.Trigger>
+    <Tabs.Trigger value="settings">Settings</Tabs.Trigger>
+  </Tabs.List>
+  <Tabs.Content value="overview">...</Tabs.Content>
+  <Tabs.Content value="settings">...</Tabs.Content>
+</Tabs>
+```
+
+- Parent owns state
+- Children consume via context
+- Prefer this over prop drilling for complex widgets
+
+### Render Props / Slots
+
+- Use render props or slot patterns when behavior is shared but markup must vary
+- Keep keyboard handling, ARIA, and focus logic in the headless layer
+
+### Container / Presentational Split
+
+- Container components own data loading and side effects
+- Presentational components receive props and render UI
+- Presentational components should stay pure
+
+## State Management
+
+Treat these separately:
+
+| Concern | Tooling |
+|---------|---------|
+| GraphQL control plane | Apollo Client |
+| Stream / page-slice UI state | Zustand (redux middleware) |
+| Local interaction | Component hooks |
+| Shareable filters/sorts | React Router search params |
+| Preferences | Context + versioned local storage |
+| Compact index and queries | Browser Web Worker |
+
+- Do not duplicate the full corpus into client stores; the worker owns the index
+- Derive values instead of storing redundant computed state
+- Do not introduce a second remote-state library beside Apollo for GraphQL
+
+## URL As State
+
+Persist shareable state in the URL:
+- filters
+- sort order
+- pagination when it is part of the shareable view contract
+- search query when the product contract makes it shareable
+
+## Data Fetching
+
+### Stale-While-Revalidate
+
+- Return cached data immediately
+- Revalidate in the background
+- Prefer existing libraries instead of rolling this by hand
+
+### Parallel Loading
+
+- Fetch independent data in parallel
+- Avoid parent-child request waterfalls
+- Prefetch likely next routes or states when justified
+
+## Stream and Detail Loading
+
+Bootstrap with GraphQL (`streamDescriptor`, summaries, facets), open SSE inside
+the Web Worker for Finding Blocks, and fetch Record Detail lazily through
+GraphQL when a row is selected. Browser code never fetches the raw Source
+Dataset or talks to ClickHouse or Redis directly.

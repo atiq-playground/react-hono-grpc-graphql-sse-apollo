@@ -1,0 +1,63 @@
+---
+globs: **/*.css,**/*.html,**/*.tsx,**/*.jsx
+alwaysApply: false
+---
+> This file extends [common/testing.mdc](../common/testing.mdc) with web-specific testing content.
+
+# Web Testing Rules
+
+Final QA is risk-based and follows PRD implementation.
+
+## Priority Order
+
+### 1. Visual Regression
+
+- Exercise representative narrow, tablet, and desktop viewports
+- Test dashboard loading, populated, empty, error, filtered, and detail states
+- Use Playwright screenshots only where a visual regression is a meaningful risk
+- If both themes exist, test both
+
+### 2. Accessibility
+
+- Run automated accessibility checks
+- Test keyboard navigation
+- Verify reduced-motion behavior
+- Verify color contrast
+
+### 3. Performance
+
+- Run Lighthouse or equivalent against meaningful pages
+- Keep CWV targets from [performance.mdc](performance.mdc)
+
+### 4. Cross-Browser
+
+- Select browser coverage from risk; at minimum verify the supported Chromium
+  journey before expanding to Firefox and WebKit
+- Test grid, charts, Worker integration, scrolling, and fallback behavior
+
+### 5. Responsive
+
+- Test 320, 375, 768, 1024, 1440, 1920
+- Verify no overflow
+- Verify touch interactions
+
+## E2E Shape
+
+```ts
+import { test, expect } from '@playwright/test';
+
+test('dashboard supports the critical exploration journey', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('h1')).toBeVisible();
+});
+```
+
+- Avoid flaky timeout-based assertions
+- Prefer deterministic waits
+
+## Unit Tests
+
+- Test utilities, data transforms, and custom hooks
+- For highly visual components, visual regression often carries more signal than brittle markup assertions
+- Jest plus React Testing Library covers selected component and integration
+  seams. No arbitrary coverage target applies.

@@ -1,0 +1,20 @@
+---
+globs: **/*.ts,**/*.tsx,**/*.js,**/*.jsx
+alwaysApply: false
+---
+# TypeScript/JavaScript Testing
+
+> This file extends [common/testing.mdc](../common/testing.mdc) with TypeScript/JavaScript specific content.
+
+## Selected Tools
+
+- Use Jest for selected TypeScript unit and integration seams.
+- Use React Testing Library for user-observable component behavior.
+- Use Playwright for critical browser flows.
+
+Prefer deterministic tests around streaming transforms, schema rejection,
+manifest publication, worker-message protocols, URL serialization, and compact
+query behavior. Final QA is risk-based; no blanket coverage percentage applies.
+
+Do not read `ui_demo.json` directly in tests. Use small sanitized fixtures
+derived by the bounded inspection workflow.

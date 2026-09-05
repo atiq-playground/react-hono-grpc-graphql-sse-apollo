@@ -1,0 +1,47 @@
+---
+description: Product design system constraints for dashboard UI and shared UI package
+globs: apps/dashboard/**/*.{tsx,ts,css},packages/ui/**/*.{tsx,ts,css}
+alwaysApply: false
+---
+> This file extends [design-quality.mdc](./design-quality.mdc) with product UI
+> constraints for shadcn and Tailwind. Shared primitives live in `packages/ui`.
+
+# Product Design System
+
+Before changing UI in `apps/dashboard` or `packages/ui`, prefer existing shadcn
+primitives and Tailwind tokens in `packages/ui` over one-off markup.
+
+## Must
+
+- Compose theme and base styles once at the app root (CSS variables / Tailwind
+  theme from `packages/ui`, not a second competing theme system).
+- Use shadcn primitives from `packages/ui` before bespoke controls. Add a wrapper
+  only for reusable behavior or a named product semantic.
+- Prefer Tailwind utility classes and shared CSS variables for layout, color,
+  spacing, and typography. Keep static CSS for narrow layout needs.
+- Preserve accessible focus, hover, pressed, disabled, validation, keyboard, and
+  reduced-motion behavior from the underlying Radix / shadcn primitives.
+- Use TanStack Table (headless) plus TanStack Virtual for the explore grid, and
+  Recharts via shadcn charts for overview charts. Do not introduce a second
+  grid or chart stack without confirmation.
+- Communicate severity and status with text or icon, not color alone.
+- Keep filtering, sorting, suggestions, pagination, and export in the browser
+  Web Worker, not render code.
+
+## Must Not
+
+- Import a second UI framework (for example Material UI) alongside shadcn.
+- Put product features, GraphQL operations, routing, domain logic, producer
+  code, or app-only imports in `packages/ui`.
+- Bypass `packages/ui` with relative copies of shadcn components inside
+  `apps/dashboard` when the shared package already exports them.
+- Invent a dark theme as a default mode; polarity-flipped ink is a surface
+  treatment only when the product explicitly defines it.
+- Create pass-through styled wrappers that add no behavior.
+- Replace form-field semantics with a non-semantic styled container.
+
+## Related
+
+- [design-quality.mdc](./design-quality.mdc) for hierarchy, density, and
+  accessibility quality bars.
+- [docs/TECH_STACK.md](../../../docs/TECH_STACK.md) for the locked UI stack.

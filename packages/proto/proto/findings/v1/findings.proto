@@ -1,0 +1,83 @@
+syntax = "proto3";
+
+package findings.v1;
+
+// StreamFindings resumes after the given block sequence within a dataset version.
+// after_sequence=0 means start from the first block.
+message StreamRequest {
+  uint64 after_sequence = 1;
+  string dataset_version = 2;
+}
+
+// Dictionary-encoded string column: indices[i] selects dictionary[indices[i]].
+// For a per-stream dictionary, later blocks may send only newly encountered
+// strings in `dictionary` while indices remain absolute into the stream dict
+// built by concatenating dictionaries in sequence order (producer convention).
+// Smoke and unit helpers treat each block's dictionary as self-contained.
+message DictColumn {
+  repeated string dictionary = 1;
+  repeated uint32 indices = 2;
+}
+
+// Sparse optional string column (kaiStatus): only rows with a value appear.
+message SparseStringColumn {
+  repeated uint32 row_indices = 1;
+  repeated string values = 2;
+}
+
+// Nested string arrays flattened with exclusive end offsets.
+// For row i, values are values[offsets[i] .. offsets[i+1]).
+// offsets has length row_count + 1; offsets[0] is 0.
+message OffsetStringArrays {
+  repeated string values = 1;
+  repeated uint32 offsets = 2;
+}
+
+// Columnar FindingBlock: parallel arrays, not repeated row messages.
+message FindingBlock {
+  uint64 sequence = 1;
+  string dataset_version = 2;
+  uint32 row_count = 3;
+
+  // Source context (high cardinality — sent as plain strings)
+  repeated string group = 10;
+  repeated string repo = 11;
+  repeated string image = 12;
+
+  // Vulnerability identity / package (high cardinality)
+  repeated string cve = 20;
+  repeated string package_name = 21;
+  repeated string package_version = 22;
+  repeated string path = 23;
+
+  // Low-cardinality dictionary columns
+  DictColumn severity = 30;
+  DictColumn package_type = 31;
+  DictColumn status = 32;
+  DictColumn advisory_type = 33;
+  DictColumn build_type = 34;
+  DictColumn type = 35;
+
+  // Scalars and long text
+  repeated double cvss = 40;
+  repeated string description = 41;
+  repeated string cause = 42;
+  repeated string exploit = 43;
+  repeated string fix_date = 44;
+  repeated string published = 45;
+  repeated string layer_time = 46;
+  repeated string link = 47;
+  repeated string owner = 48;
+  repeated string vec_str = 49;
+
+  // Present on a minority of rows (sparse)
+  SparseStringColumn kai_status = 50;
+
+  // Nested arrays via offset packing
+  OffsetStringArrays risk_factors = 60;
+  OffsetStringArrays applicable_rules = 61;
+}
+
+service FindingsService {
+  rpc StreamFindings(StreamRequest) returns (stream FindingBlock);
+}
