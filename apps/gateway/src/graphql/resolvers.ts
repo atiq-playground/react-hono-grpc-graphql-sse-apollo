@@ -17,6 +17,16 @@ const FindingId = z.object({
   path: z.string(),
 });
 
+const FacetColumn = z.enum([
+  "severity",
+  "packageType",
+  "status",
+  "advisoryType",
+  "group",
+  "repo",
+  "kaiStatus",
+]);
+
 export type GatewayContext = {
   ch: ClickHouseClient;
 };
@@ -68,6 +78,29 @@ async function queryJson<T>(
   return (await result.json()) as T[];
 }
 
+export async function queryFacet(
+  ch: ClickHouseClient,
+  requestedColumn: unknown,
+): Promise<Array<{ value: string; count: number }>> {
+  const parsedColumn = FacetColumn.safeParse(requestedColumn);
+  if (!parsedColumn.success) {
+    throwClientError("Invalid facet column");
+  }
+
+  const rows = await queryJson<{ value: string; count: string }>(
+    ch,
+    `
+    SELECT ifNull(toString({column:Identifier}), '') AS value, count() AS count
+    FROM findings
+    GROUP BY value
+    ORDER BY count DESC
+    LIMIT 500
+    `,
+    { column: parsedColumn.data },
+  );
+  return rows.map((row) => ({ value: row.value, count: Number(row.count) }));
+}
+
 export const resolvers = {
   Query: {
     async summary(_parent: unknown, _args: unknown, ctx: GatewayContext) {
@@ -108,28 +141,14 @@ export const resolvers = {
     },
 
     async facets(_parent: unknown, _args: unknown, ctx: GatewayContext) {
-      const facet = async (column: string) => {
-        const rows = await queryJson<{ value: string; count: string }>(
-          ctx.ch,
-          `
-          SELECT ifNull(toString(${column}), '') AS value, count() AS count
-          FROM findings
-          GROUP BY value
-          ORDER BY count DESC
-          LIMIT 500
-          `,
-        );
-        return rows.map((r) => ({ value: r.value, count: Number(r.count) }));
-      };
-
       return {
-        severity: await facet("severity"),
-        packageType: await facet("packageType"),
-        status: await facet("status"),
-        advisoryType: await facet("advisoryType"),
-        group: await facet("`group`"),
-        repo: await facet("repo"),
-        kaiStatus: await facet("kaiStatus"),
+        severity: await queryFacet(ctx.ch, "severity"),
+        packageType: await queryFacet(ctx.ch, "packageType"),
+        status: await queryFacet(ctx.ch, "status"),
+        advisoryType: await queryFacet(ctx.ch, "advisoryType"),
+        group: await queryFacet(ctx.ch, "group"),
+        repo: await queryFacet(ctx.ch, "repo"),
+        kaiStatus: await queryFacet(ctx.ch, "kaiStatus"),
       };
     },
 

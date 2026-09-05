@@ -10,8 +10,10 @@ const config = {
     "<rootDir>/packages/shared",
     "<rootDir>/tools",
   ],
+  extensionsToTreatAsEsm: [".ts"],
   testMatch: ["**/?(*.)+(test|spec).ts"],
   moduleNameMapper: {
+    "^(\\.{1,2}/.*)\\.js$": "$1",
     "^@repo/shared$": "<rootDir>/packages/shared/src/index.ts",
     "^@repo/shared/(.*)$": "<rootDir>/packages/shared/src/$1",
     "^@repo/proto$": "<rootDir>/packages/proto/src/index.ts",
@@ -22,7 +24,7 @@ const config = {
       "ts-jest",
       {
         tsconfig: "<rootDir>/tsconfig.base.json",
-        useESM: false,
+        useESM: true,
         diagnostics: false,
       },
     ],

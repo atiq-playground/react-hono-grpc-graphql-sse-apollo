@@ -14,7 +14,7 @@
     "test": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "bunx jest --selectProjects node --passWithNoTests --testPathPatterns=apps/gateway"
+        "command": "NODE_OPTIONS=--experimental-vm-modules bunx jest --selectProjects node --passWithNoTests --testPathPatterns=apps/gateway"
       }
     },
     "serve": {
