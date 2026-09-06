@@ -191,6 +191,17 @@ test("bounded overview-to-export exploration journey", async ({ page }) => {
     if (message.type() === "error") consoleErrors.push(message.text());
   });
   await installEventSourceBoundary(page);
+  // Intercept before Vite proxies /api/exports to the gateway (absent in this suite).
+  await page.route("**/api/exports/**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      headers: {
+        "content-type": "text/csv; charset=utf-8",
+        "content-disposition": 'attachment; filename="findings.csv"',
+      },
+      body: "id,cve\n0123456789abcdef0123456789abcdef,CVE-2026-0001\n",
+    });
+  });
   await page.route("**/graphql", async (route) => {
     const body = route.request().postDataJSON() as {
       operationName: string;
@@ -274,7 +285,10 @@ test("bounded overview-to-export exploration journey", async ({ page }) => {
     await route.fulfill({ status: 200, contentType: "application/json", body: response });
   });
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Vulnerability overview" })).toBeVisible();
+  // First Chromium project pays Vite's cold lazy-chunk compile; wait past Suspense.
+  await expect(page.getByRole("heading", { name: "Vulnerability overview" })).toBeVisible({
+    timeout: 60_000,
+  });
   await expect(page.getByText("236,653", { exact: true })).toBeVisible();
   await expect(page.getByText("Severity distribution")).toBeVisible();
 
@@ -338,12 +352,11 @@ test("bounded overview-to-export exploration journey", async ({ page }) => {
   await page.getByRole("radio", { name: "Last 7 days" }).focus();
   await page.keyboard.press("Enter");
   await windowedRequest;
-  await page.evaluate(
-    () =>
-      new Promise<void>((resolve) => {
-        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
-      }),
-  );
+  await expect(page).toHaveURL(/[?&]range=7d(?:&|$)/);
+  await page.waitForFunction(() => {
+    const sources = Reflect.get(window, "__qaEventSources") as unknown[] | undefined;
+    return Array.isArray(sources) && sources.length > 0;
+  });
   await page.evaluate(
     ({ id }) => {
       const sources = Reflect.get(window, "__qaEventSources") as EventTarget[];

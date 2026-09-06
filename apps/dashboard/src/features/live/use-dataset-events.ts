@@ -103,11 +103,11 @@ function isDataChange(event: DatasetEvent): boolean {
 export function useDatasetEvents(timeRangePreset: TimeRangePreset): void {
   const client = useApolloClient();
   const store = useDashboardStore();
+  // Keep the SSE handler's preset view aligned with the latest render. Updating
+  // only in an effect races Playwright (and real users) who emit DatasetEvents
+  // immediately after a windowed range lands in the URL / GraphQL variables.
   const timeRangeRef = useRef(timeRangePreset);
-
-  useEffect(() => {
-    timeRangeRef.current = timeRangePreset;
-  }, [timeRangePreset]);
+  timeRangeRef.current = timeRangePreset;
 
   useEffect(() => {
     let cancelled = false;

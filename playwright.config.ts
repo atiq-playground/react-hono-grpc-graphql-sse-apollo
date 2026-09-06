@@ -8,12 +8,16 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
+  // CI starts Vite cold; lazy route chunks can exceed the 5s default expect window.
+  expect: { timeout: process.env.CI ? 15_000 : 5_000 },
+  timeout: process.env.CI ? 90_000 : 30_000,
   reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
   use: {
     baseURL,
     trace: "on-first-retry",
     screenshot: "only-on-failure",
     video: "off",
+    actionTimeout: process.env.CI ? 15_000 : 0,
   },
   projects: [
     {
