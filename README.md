@@ -66,6 +66,29 @@ Optional live changes: set `PRODUCER_SIMULATE_CHANGES_INTERVAL_MS=5000` in
 
 Stop infra and wipe volumes: `bun run infra:down`.
 
+<details>
+<summary>Screenshots</summary>
+
+![Overview](docs/screenshots/overview.png)
+
+![Overview charts](docs/screenshots/overview-charts.png)
+
+![Explore](docs/screenshots/explore.png)
+
+![Detail](docs/screenshots/detail.png)
+
+![Overview (narrow)](docs/screenshots/overview-narrow.png)
+
+![Overview (narrow menu)](docs/screenshots/overview-narrow-menu.png)
+
+Regenerate (dashboard must be reachable; `bun dev` or Playwright webServer):
+
+```bash
+bunx nx run dashboard:screenshots
+```
+
+</details>
+
 ## Further reading
 
 | Doc | For |

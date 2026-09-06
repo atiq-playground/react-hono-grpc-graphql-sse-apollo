@@ -47,6 +47,13 @@
       "options": {
         "command": "bash scripts/e2e.sh"
       }
+    },
+    "screenshots": {
+      "executor": "nx:run-commands",
+      "outputs": ["{workspaceRoot}/docs/screenshots"],
+      "options": {
+        "command": "PLAYWRIGHT_SCREENSHOTS=1 bash scripts/e2e.sh e2e/screenshots.spec.ts --project=chromium"
+      }
     }
   }
 }

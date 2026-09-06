@@ -64,6 +64,16 @@ export {
   SelectTrigger,
   SelectValue,
 } from "./components/ui/select";
+export {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "./components/ui/sheet";
 export { Skeleton } from "./components/ui/skeleton";
 export {
   Table,

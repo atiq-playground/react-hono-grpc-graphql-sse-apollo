@@ -1,10 +1,21 @@
 import { Button } from "@repo/ui/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@repo/ui/components/ui/sheet";
 import { cn } from "@repo/ui/lib/utils";
-import { MoonIcon, SunIcon } from "lucide-react";
+import { MenuIcon, MoonIcon, SunIcon } from "lucide-react";
+import { useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router";
 import { DatasetEventsProvider } from "../features/live/dataset-events-provider";
 import { useTheme } from "./dashboard-context";
 import { AppFooter } from "./footer";
+import { OwnerContactBlock } from "./owner-contact";
 import {
   loadCompareRoute,
   loadExploreRoute,
@@ -16,12 +27,28 @@ import { TechStackTags } from "./tech-stack-tags";
 
 const GITHUB_REPO_URL = "https://github.com/atiq-playground/react-hono-grpc-graphql-sse-apollo";
 
-const linkClass = ({ isActive }: { isActive: boolean }) =>
+const PRIMARY_NAV_ITEMS = [
+  { to: "/", label: "Overview", end: true as const, loader: loadOverviewRoute },
+  { to: "/explore", label: "Explore", loader: loadExploreRoute },
+  { to: "/compare", label: "Compare", loader: loadCompareRoute },
+];
+
+const desktopLinkClass = ({ isActive }: { isActive: boolean }) =>
   cn(
     "rounded-full px-4 py-1.5 text-sm font-medium transition-colors outline-none",
     "focus-visible:ring-ring/50 focus-visible:ring-[3px]",
     isActive ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
   );
+
+const mobileLinkClass = ({ isActive }: { isActive: boolean }) =>
+  cn(
+    "block rounded-md px-3 py-2.5 text-sm font-medium transition-colors outline-none",
+    "focus-visible:ring-ring/50 focus-visible:ring-[3px]",
+    isActive ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-accent",
+  );
+
+const brandLinkClass =
+  "flex shrink-0 items-center gap-2.5 rounded-sm outline-none transition-colors hover:opacity-80 focus-visible:ring-[3px] focus-visible:ring-ring/50";
 
 function intentPrefetchProps(loader: RouteLoader) {
   const prefetch = () => prefetchRoute(loader);
@@ -29,6 +56,76 @@ function intentPrefetchProps(loader: RouteLoader) {
     onFocus: prefetch,
     onMouseEnter: prefetch,
   };
+}
+
+function BrandMark() {
+  return (
+    <>
+      <span
+        aria-hidden="true"
+        className="flex size-8 items-center justify-center rounded-lg border border-border bg-muted text-base font-semibold text-muted-foreground"
+      >
+        ?
+      </span>
+      <span className="text-sm font-semibold tracking-tight text-foreground">Atiq Dashboard</span>
+    </>
+  );
+}
+
+function MobilePrimaryNav() {
+  const [open, setOpen] = useState(false);
+  const close = () => setOpen(false);
+
+  return (
+    <Sheet open={open} onOpenChange={setOpen}>
+      <SheetTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="rounded-full text-foreground md:hidden"
+          aria-label="Open primary navigation"
+        >
+          <MenuIcon aria-hidden="true" className="size-5" />
+        </Button>
+      </SheetTrigger>
+      <SheetContent side="left" className="gap-0 p-0 sm:max-w-xs">
+        <SheetHeader className="border-b border-border pr-12 text-left">
+          <SheetTitle asChild>
+            <NavLink
+              to="/"
+              end
+              className={brandLinkClass}
+              onClick={close}
+              {...intentPrefetchProps(loadOverviewRoute)}
+            >
+              <BrandMark />
+            </NavLink>
+          </SheetTitle>
+          <SheetDescription className="sr-only">
+            Primary navigation and contact details
+          </SheetDescription>
+        </SheetHeader>
+        <nav aria-label="Primary" className="flex flex-col gap-0.5 px-3 py-4">
+          {PRIMARY_NAV_ITEMS.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.end}
+              className={mobileLinkClass}
+              onClick={close}
+              {...intentPrefetchProps(item.loader)}
+            >
+              {item.label}
+            </NavLink>
+          ))}
+        </nav>
+        <SheetFooter className="mt-auto border-t border-border bg-muted/35">
+          <OwnerContactBlock nameAs="p" />
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
+  );
 }
 
 /** Fade in page content on pathname change; shell chrome stays put. */
@@ -61,46 +158,27 @@ export function AppShell() {
             <NavLink
               to="/"
               end
-              className="relative z-10 flex shrink-0 items-center gap-2.5 rounded-sm outline-none transition-colors hover:opacity-80 focus-visible:ring-[3px] focus-visible:ring-ring/50"
+              className={cn("relative z-10", brandLinkClass)}
               {...intentPrefetchProps(loadOverviewRoute)}
             >
-              <span
-                aria-hidden="true"
-                className="flex size-8 items-center justify-center rounded-lg border border-border bg-muted text-base font-semibold text-muted-foreground"
-              >
-                ?
-              </span>
-              <span className="text-sm font-semibold tracking-tight text-foreground">
-                Atiq Dashboard
-              </span>
+              <BrandMark />
             </NavLink>
             <nav
               aria-label="Primary"
-              className="absolute left-1/2 flex -translate-x-1/2 items-center"
+              className="absolute left-1/2 hidden -translate-x-1/2 items-center md:flex"
             >
               <div className="flex items-center rounded-full bg-muted p-1">
-                <NavLink
-                  to="/"
-                  className={linkClass}
-                  end
-                  {...intentPrefetchProps(loadOverviewRoute)}
-                >
-                  Overview
-                </NavLink>
-                <NavLink
-                  to="/explore"
-                  className={linkClass}
-                  {...intentPrefetchProps(loadExploreRoute)}
-                >
-                  Explore
-                </NavLink>
-                <NavLink
-                  to="/compare"
-                  className={linkClass}
-                  {...intentPrefetchProps(loadCompareRoute)}
-                >
-                  Compare
-                </NavLink>
+                {PRIMARY_NAV_ITEMS.map((item) => (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    end={item.end}
+                    className={desktopLinkClass}
+                    {...intentPrefetchProps(item.loader)}
+                  >
+                    {item.label}
+                  </NavLink>
+                ))}
               </div>
             </nav>
             <div className="relative z-10 flex items-center gap-1">
@@ -128,6 +206,7 @@ export function AppShell() {
                   <GitHubIcon className="size-4" />
                 </a>
               </Button>
+              <MobilePrimaryNav />
             </div>
           </div>
         </header>
