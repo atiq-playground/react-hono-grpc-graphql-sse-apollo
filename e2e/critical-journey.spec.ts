@@ -229,6 +229,13 @@ test("bounded overview-to-export exploration journey", async ({ page }) => {
       case "FindingDetail":
         data = { finding: detail() };
         break;
+      case "SearchSuggestions":
+        data = {
+          searchSuggestions: [
+            { __typename: "SearchSuggestion", value: "openssl", field: "PACKAGE_NAME" },
+          ],
+        };
+        break;
       case "CreateExport":
         data = {
           createExport: {
@@ -308,7 +315,7 @@ test("bounded overview-to-export exploration journey", async ({ page }) => {
       variables?.after == null,
   );
   await page
-    .getByRole("searchbox", { name: "Search CVE, package, image, or repository" })
+    .getByRole("combobox", { name: "Search CVE, package, image, or repository" })
     .fill("openssl");
   await searchRequest;
 

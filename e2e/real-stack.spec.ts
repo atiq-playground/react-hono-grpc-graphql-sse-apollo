@@ -87,7 +87,7 @@ test("real bounded exploration works at desktop and narrow widths", async ({ pag
     (variables) => variables.search === "CVE-2013-4235" && variables.after == null,
   );
   await page
-    .getByRole("searchbox", { name: "Search CVE, package, image, or repository" })
+    .getByRole("combobox", { name: "Search CVE, package, image, or repository" })
     .fill("CVE-2013-4235");
   const searchBody = await (await searchResponse).json();
   expect(searchBody.data.findings.edges.length).toBeLessThanOrEqual(50);

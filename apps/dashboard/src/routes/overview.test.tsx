@@ -15,6 +15,12 @@ jest.mock("react-router", () => ({
   ),
 }));
 
+// PageHeader always mounts the shared shell toolbar; stub it so empty-chart
+// assertions do not require location, Apollo export, or suggestion clients.
+jest.mock("../app/page-toolbar", () => ({
+  PageToolbar: () => null,
+}));
+
 jest.mock("../features/overview/OverviewToolbar", () => ({
   OverviewToolbar: () => <div>toolbar</div>,
 }));

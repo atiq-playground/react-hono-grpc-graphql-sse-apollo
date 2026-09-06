@@ -26,6 +26,12 @@ jest.mock("react-router", () => {
   };
 });
 
+// PageHeader always mounts the shared shell toolbar; stub it so this suite stays
+// on Compare form/results without router location, store, or Apollo boundaries.
+jest.mock("../app/page-toolbar", () => ({
+  PageToolbar: () => null,
+}));
+
 jest.mock("../features/compare/use-compare-analysis", () => ({
   useCompareAnalysis: (
     _filters: unknown,
@@ -53,10 +59,6 @@ jest.mock("../features/compare/use-compare-analysis", () => ({
     error: undefined,
     refetch,
   }),
-}));
-
-jest.mock("../features/time-range/TimeRangeFilter", () => ({
-  TimeRangeFilter: () => <div>time range</div>,
 }));
 
 describe("ComparePage", () => {
