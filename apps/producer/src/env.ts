@@ -47,5 +47,5 @@ export const PRODUCER_SIMULATE_CHANGES_INTERVAL_MS = integerEnv(
   86_400_000,
 );
 export const INGEST_SOURCE = LocalPath.parse(
-  process.env.INGEST_SOURCE ?? "apps/producer/data/raw/ui_demo.json",
+  process.env.INGEST_SOURCE ?? "apps/producer/data/sample/ui_demo.sample.json",
 );

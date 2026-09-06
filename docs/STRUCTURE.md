@@ -50,10 +50,11 @@ apps/producer/
     └── *.types.ts                   colocated implementation contracts
 ```
 
-The ingest script streams `apps/producer/data/raw/ui_demo.json`, which is
-gitignored, into bounded protobuf v2 blocks. The producer writes ClickHouse and
-publishes JSON Dataset Events. It does not serve historical findings to the
-browser.
+The ingest script streams the default sample at
+`apps/producer/data/sample/ui_demo.sample.json` (or the optional full corpus at
+`apps/producer/data/raw/ui_demo.json`, which is gitignored) into bounded
+protobuf v2 blocks. The producer writes ClickHouse and publishes JSON Dataset
+Events. It does not serve historical findings to the browser.
 
 ### `apps/gateway`
 
@@ -204,8 +205,9 @@ gateway must not route browser reads through the producer.
   regenerated with `bunx nx run dashboard:codegen`.
 - Buf generated output: `packages/proto/src/gen/findings/v2/`, regenerated
   with `bunx nx run proto:buf-generate`.
-- Local source data: `apps/producer/data/raw/`, untracked and never read
-  wholesale by agents or tests.
+- Local source data: checked-in sample under `apps/producer/data/sample/`;
+  optional full corpus under `apps/producer/data/raw/` (untracked; never read
+  wholesale by agents or tests).
 - Local export artifacts: `.data/exports/` by default; single-node and
   disposable.
 - Build outputs, dependency directories, Nx caches, and TypeScript build

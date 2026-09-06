@@ -255,9 +255,10 @@ async function main(): Promise<void> {
     const response = await client.ingestBlocks(blocks(), {
       headers: { "x-ingest-replace": force ? "true" : "false" },
     });
-    if (streamedRows !== EXPECTED_ROWS || Number(response.sourceRowsWritten) !== EXPECTED_ROWS) {
+    const isFullCorpus = basename(INGEST_SOURCE) === "ui_demo.json";
+    if (Number(response.sourceRowsWritten) !== streamedRows) {
       throw new Error(
-        `expected ${EXPECTED_ROWS} source rows, streamed ${streamedRows}, producer wrote ${response.sourceRowsWritten}`,
+        `streamed ${streamedRows} source rows, producer wrote ${response.sourceRowsWritten}`,
       );
     }
     if (response.blocksWritten !== streamedBlocks) {
@@ -265,10 +266,17 @@ async function main(): Promise<void> {
         `producer wrote ${response.blocksWritten} blocks, client streamed ${streamedBlocks}`,
       );
     }
-    if (Number(response.currentFindings) !== EXPECTED_FINDINGS) {
-      throw new Error(
-        `expected ${EXPECTED_FINDINGS} findings under FINAL, got ${response.currentFindings}`,
-      );
+    if (isFullCorpus) {
+      if (streamedRows !== EXPECTED_ROWS) {
+        throw new Error(
+          `expected ${EXPECTED_ROWS} source rows for full corpus, streamed ${streamedRows}`,
+        );
+      }
+      if (Number(response.currentFindings) !== EXPECTED_FINDINGS) {
+        throw new Error(
+          `expected ${EXPECTED_FINDINGS} findings under FINAL for full corpus, got ${response.currentFindings}`,
+        );
+      }
     }
     console.info(
       `Done: ${streamedRows} source rows -> ${response.currentFindings} FINAL findings in ${((Date.now() - started) / 1000).toFixed(1)}s; peak RSS ${(peakRss / 1024 / 1024).toFixed(1)} MiB`,

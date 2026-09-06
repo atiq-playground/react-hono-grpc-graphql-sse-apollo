@@ -1,0 +1,5 @@
+{
+  "sourceRows": 10994,
+  "approxBytes": 10486103,
+  "note": "Sanitized contiguous prefix of ui_demo.json for local setup; regenerate with bunx nx run producer:make-sample"
+}

@@ -23,6 +23,12 @@
         "command": "bun apps/producer/scripts/ingest.ts"
       }
     },
+    "make-sample": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bun apps/producer/scripts/make-sample.ts"
+      }
+    },
     "serve": {
       "executor": "nx:run-commands",
       "options": {
